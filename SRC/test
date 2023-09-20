@@ -1,0 +1,184 @@
+#!/bin/bash
+
+# abbr list
+# AC    -       Accept
+# WA    -       Wrong Answer
+
+# 0 represents judge point AC
+# 1 represents there are problems in teachers' file
+# 2 represents there are problems in syntax
+# 4 represents AC
+
+# it will be formatted into standard JSON afterwards.
+ep=100
+testPointNum=-1
+
+pts=$(ls /coursegrader/testdata | grep 'point')
+pts=${pts//point/}
+ARR=($pts)
+IFS=$'\n' sorted=($(sort -r -n <<<"${ARR[*]}"))
+if [[ "${sorted[0]}" != "" ]]; then
+  let testPointNum=${sorted[0]}+1;
+  let ep=100/$testPointNum
+fi
+
+print() {
+  if [ "$1" == "0" ]; then
+    echo {\"HTML\":\"true\", \"verdict\":\"${2} AC\", \"score\":\"$ep\", \"comment\":\"Point ${2} correct\"}
+  elif [ "$1" == "1" ]; then
+    echo {\"verdict\":\"teacher error\", \"score\":\"0\", \"comment\":\"${2}\"}
+  elif [ "$1" == "2" ]; then
+      echo {\"verdict\":\"syntax error\", \"score\":\"0\", \"comment\":\"${2}\"}
+  elif [ "$1" == "4" ]; then
+    echo {\"HTML\":\"true\", \"verdict\":\"AC\", \"score\":\"100\", \"comment\":\"Answer Correct\"}
+  else
+    echo {\"HTML\":\"true\", \"verdict\":\"${2} WA\", \"score\":\"0\", \"comment\":\"${3}\"}
+  fi
+}
+
+quit_oj() {
+  rm -rf /home/ojfiles
+  exit 0
+}
+
+if [ -d "/home/ojfiles" ]; then
+  rm -rf /home/ojfiles
+fi
+
+mkdir /home/ojfiles
+
+simulateTime=$1
+finishTime=$2
+
+
+# get all testbenches in testdata
+test_bench=$(ls /coursegrader/testdata/ 2>/dev/null | grep '.*_tb.v')
+
+# if testbench does not exist
+if [[ "$test_bench" == "" ]]; then
+  print 1 "no test_bench"
+  quit_oj
+fi
+
+# remember: all files in testdata are READ-ONLY
+cp /coursegrader/testdata/$test_bench /home/ojfiles/
+
+# grab $finish, if it does not exist, add one to the end, by the format of following code:
+finish_flag=$(grep "finish" /home/ojfiles/$test_bench)
+
+if [ "$finish_flag" == "" ]; then
+  sed -i "/endmodule/i\initial begin #$finishTime "'$finish; end' /home/ojfiles/$test_bench
+fi
+
+# grab teacher's answer
+teacher_files=$(ls /coursegrader/testdata/ 2>/dev/null | grep '.v' | grep -v '.*_tb.v')
+
+# I have no idea, but only in this way, next command will work well.
+cd /coursegrader/testdata/
+
+# synthesis teacher's answer
+iverilog -o /home/ojfiles/teacher_exe $teacher_files /home/ojfiles/$test_bench >&/home/ojfiles/teacher_logs
+
+# error
+if [ ! -s "/home/ojfiles/teacher_exe" ]; then
+  errors=$(cat /home/ojfiles/teacher_logs | sed ':label;N;s/\n/\\\\n/;b label' 2>/dev/null)
+  print 1 "$errors"
+  quit_oj
+fi
+
+# run, if it costs longer than simulateTime, it will be killed.
+timeout $simulateTime /home/ojfiles/teacher_exe >/home/ojfiles/teacher_result
+
+# if return status is not zero, which means something wrong occured.
+if [ $? -ne 0 ]; then
+  print 1 "SIMULATE ERROR, PLEASE CONTACT YOUR TA."
+  quit_oj
+fi
+
+iverilog -o /home/ojfiles/student_exe /coursegrader/submit/*.v /home/ojfiles/$test_bench >&/home/ojfiles/student_logs
+
+if [ ! -s "/home/ojfiles/student_exe" ]; then
+  errors=$(cat /home/ojfiles/student_logs | sed ':label;N;s/\n/\\\\n/;b label' 2>/dev/null)
+  print 2 "$errors"
+  quit_oj
+fi
+
+timeout $simulateTime /home/ojfiles/student_exe >/home/ojfiles/student_result
+if [ $? -ne 0 ]; then
+  print 2 "SIMULATE ERROR."
+  quit_oj
+fi
+
+diff /home/ojfiles/student_result /home/ojfiles/teacher_result >/home/ojfiles/result.diff
+
+if test -s /home/ojfiles/result.diff; then
+  
+  # testbench wrong and, no sub testbench.	
+  if [[ "$testPointNum" == "-1" ]]; then
+    print 3 "All" "All Wrong"
+    quit_oj
+  fi
+
+  for ((i = 0; i < $testPointNum; i = i + 1)); do
+    mkdir /home/ojfiles/point$i
+
+    test_bench=$(ls /coursegrader/testdata/point$i/ 2>/dev/null | grep '.*_tb.v')
+
+    if [[ "$test_bench" == "" ]]; then
+      print 1 "no test_bench"
+      quit_oj
+    fi
+
+    cp /coursegrader/testdata/point$i/$test_bench /home/ojfiles/point$i/
+
+    finish_flag=$(grep "finish" /home/ojfiles/point$i/$test_bench)
+
+    if [ "$finish_flag" == "" ]; then
+      sed -i "/endmodule/i\initial begin #$finishTime "'$finish; end' /home/ojfiles/point$i/$test_bench
+    fi
+
+    teacher_files=$(ls /coursegrader/testdata/ 2>/dev/null | grep -v '.*_tb.v' | grep -v '.json')
+
+    cd /coursegrader/testdata/
+    iverilog -o /home/ojfiles/point$i/teacher_exe $teacher_files /home/ojfiles/point$i/$test_bench >&/home/ojfiles/point$i/teacher_logs
+
+    if [ ! -s "/home/ojfiles/point$i/teacher_exe" ]; then
+      errors=$(cat /home/ojfiles/point$i/teacher_logs | sed ':label;N;s/\n/\\\\n/;b label' 2>/dev/null)
+      print 1 "$errors"
+      quit_oj
+    fi
+
+    timeout $simulateTime /home/ojfiles/point$i/teacher_exe >/home/ojfiles/point$i/teacher_result
+
+    if [ $? -ne 0 ]; then
+      print 1 "SIMULATE ERROR."
+      quit_oj
+    fi
+
+    iverilog -o /home/ojfiles/point$i/student_exe /coursegrader/submit/*.v /home/ojfiles/point$i/$test_bench >&/home/ojfiles/point$i/student_logs
+
+    if [ ! -s "/home/ojfiles/point$i/student_exe" ]; then
+      errors=$(cat /home/ojfiles/point$i/student_logs | sed ':label;N;s/\n/\\\\n/;b label' 2>/dev/null)
+      print 2 "$errors"
+      quit_oj
+    fi
+
+    timeout $simulateTime /home/ojfiles/point$i/student_exe >/home/ojfiles/point$i/student_result
+    if [ $? -ne 0 ]; then
+      print 2 "SIMULATE ERROR."
+      quit_oj
+    fi
+
+    diff /home/ojfiles/point$i/student_result /home/ojfiles/point$i/teacher_result >/home/ojfiles/point$i/result.diff
+
+    if test -s /home/ojfiles/point$i/result.diff; then
+      print 3 $i "Point $i Wrong"
+    else
+      print 0 $i
+    fi
+
+  done
+
+else
+  print 4
+fi

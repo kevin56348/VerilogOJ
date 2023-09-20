@@ -1,0 +1,4 @@
+#!/bin/bash
+# quit OJ
+rm -rf /home/ojfiles
+exit 0
