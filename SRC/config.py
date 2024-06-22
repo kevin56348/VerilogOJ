@@ -28,7 +28,7 @@ hscale = 1
 # testType = 0
 # testType = 1
 
-simulateTime = 2
+simulateTime = 120
 
 finishTime = 2
 

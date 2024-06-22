@@ -8,6 +8,8 @@ import subprocess
 import trans_test as wave_trans
 import codecs
 import sys
+import os
+import yaml
 
 # text format set to utf-8
 sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
@@ -25,9 +27,15 @@ def run():
     #if(state == 1):
     #    print(err_message(message))
     #    exit()
-
+    noMainTestPoint = "M"
+    conf_data = []
+    if os.path.exists("/coursegrader/testdata/config.yaml"):
+        with open("/coursegrader/testdata/config.yaml") as file1:
+            conf_data = yaml.load(file1, Loader=yaml.FullLoader)
+        if conf_data["noMainTestPoint"] == True:
+            noMainTestPoint = "N"
     # call `test` to synthesis and simulate
-    command_line = "/home/pythonfile/test {0} {1}".format(str(glo.simulateTime), str(glo.finishTime))
+    command_line = "/home/pythonfile/test {0} {1} {2}".format(str(glo.simulateTime), str(glo.finishTime), str(noMainTestPoint))
     args = shlex.split(command_line)
     p = "err"
     

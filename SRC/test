@@ -10,33 +10,46 @@
 # 4 represents AC
 
 # it will be formatted into standard JSON afterwards.
+# Full credit will be 100 for CG platform
 ep=100
+# That indicates there will be one and only one testpoint, without any directory with name: pointx
 testPointNum=-1
-
+# Get all directories with name point
 pts=$(ls /coursegrader/testdata | grep 'point')
 pts=${pts//point/}
 ARR=($pts)
 IFS=$'\n' sorted=($(sort -r -n <<<"${ARR[*]}"))
+# There might be a slight gap if 100 % testPointNum != 0
 if [[ "${sorted[0]}" != "" ]]; then
   let testPointNum=${sorted[0]}+1;
   let ep=100/$testPointNum
 fi
+testPass=0
 
+# JSON
 print() {
   if [ "$1" == "0" ]; then
-    echo {\"HTML\":\"true\", \"verdict\":\"${2} AC\", \"score\":\"$ep\", \"comment\":\"Point ${2} correct\"}
+    echo {\"HTML\":\"true\", \"verdict\":\"${2} AC\", \"score\":\"0\",\"comment\":\"Point ${2} correct\"}
   elif [ "$1" == "1" ]; then
     echo {\"verdict\":\"teacher error\", \"score\":\"0\", \"comment\":\"${2}\"}
   elif [ "$1" == "2" ]; then
       echo {\"verdict\":\"syntax error\", \"score\":\"0\", \"comment\":\"${2}\"}
   elif [ "$1" == "4" ]; then
     echo {\"HTML\":\"true\", \"verdict\":\"AC\", \"score\":\"100\", \"comment\":\"Answer Correct\"}
+  elif [ "$1" == "5" ]; then
+    realScore=$[$testPass * 100 / $testPointNum]
+    comment="Partially Correct"
+    if [[ "$realScore" == "100" ]]; then
+	comment="AC"
+    fi
+    echo {\"HTML\":\"true\", \"verdict\":\"${2}\", \"score\":\"$realScore\", \"comment\":\"$comment\"}
   else
     echo {\"HTML\":\"true\", \"verdict\":\"${2} WA\", \"score\":\"0\", \"comment\":\"${3}\"}
   fi
 }
-
+# Delete cache
 quit_oj() {
+  make clean > /dev/null 2>&1
   rm -rf /home/ojfiles
   exit 0
 }
@@ -50,60 +63,50 @@ mkdir /home/ojfiles
 simulateTime=$1
 finishTime=$2
 
-
-# get all testbenches in testdata
-test_bench=$(ls /coursegrader/testdata/ 2>/dev/null | grep '.*_tb.v')
-
-# if testbench does not exist
-if [[ "$test_bench" == "" ]]; then
-  print 1 "no test_bench"
-  quit_oj
+if [[ $simulateTime == "" ]]; then
+  simulateTime=1200
+  finishTime=1200
 fi
 
-# remember: all files in testdata are READ-ONLY
-cp /coursegrader/testdata/$test_bench /home/ojfiles/
+# There is a main test point
+if [[ $3 == "M" ]]; then
 
-# grab $finish, if it does not exist, add one to the end, by the format of following code:
-finish_flag=$(grep "finish" /home/ojfiles/$test_bench)
+# Compile teacher's answer:
+make teacher_exe > /home/ojfiles/make_log.txt 2>&1
+# output: /home/ojfiles/build/teacher_exe
 
-if [ "$finish_flag" == "" ]; then
-  sed -i "/endmodule/i\initial begin #$finishTime "'$finish; end' /home/ojfiles/$test_bench
-fi
-
-# grab teacher's answer
-teacher_files=$(ls /coursegrader/testdata/ 2>/dev/null | grep '.v' | grep -v '.*_tb.v')
-
-# I have no idea, but only in this way, next command will work well.
-cd /coursegrader/testdata/
-
-# synthesis teacher's answer
-iverilog -o /home/ojfiles/teacher_exe $teacher_files /home/ojfiles/$test_bench >&/home/ojfiles/teacher_logs
-
-# error
-if [ ! -s "/home/ojfiles/teacher_exe" ]; then
-  errors=$(cat /home/ojfiles/teacher_logs | sed ':label;N;s/\n/\\\\n/;b label' 2>/dev/null)
+# Something is wrong: make failed
+if [ ! -s "/home/ojfiles/build/teacher_exe" ]; then
+  errors=$(cat /home/ojfiles/make_log.txt | sed ':label;N;s/\n/\\\\n/;b label' 2>/dev/null)
   print 1 "$errors"
   quit_oj
+#else 
+#  cat /home/ojfiles/make_log.txt
 fi
 
 # run, if it costs longer than simulateTime, it will be killed.
-timeout $simulateTime /home/ojfiles/teacher_exe >/home/ojfiles/teacher_result
+timeout $simulateTime /home/ojfiles/build/teacher_exe >/home/ojfiles/teacher_result
 
-# if return status is not zero, which means something wrong occured.
+# # if return status is not zero, which means something wrong occured.
 if [ $? -ne 0 ]; then
   print 1 "SIMULATE ERROR, PLEASE CONTACT YOUR TA."
   quit_oj
 fi
 
-iverilog -o /home/ojfiles/student_exe /coursegrader/submit/*.v /home/ojfiles/$test_bench >&/home/ojfiles/student_logs
+# Compile student's answer:
+make student_exe > /home/ojfiles/make_log_student.txt 2>&1
+# output: /home/ojfiles/build/student_exe
 
-if [ ! -s "/home/ojfiles/student_exe" ]; then
-  errors=$(cat /home/ojfiles/student_logs | sed ':label;N;s/\n/\\\\n/;b label' 2>/dev/null)
-  print 2 "$errors"
+# Something is wrong: make failed
+if [ ! -s "/home/ojfiles/build/student_exe" ]; then
+  errors=$(cat /home/ojfiles/make_log_student.txt | sed ':label;N;s/\n/\\\\n/;b label' 2>/dev/null)
+  print 1 "$errors"
   quit_oj
+#else 
+#  cat /home/ojfiles/make_log.txt
 fi
 
-timeout $simulateTime /home/ojfiles/student_exe >/home/ojfiles/student_result
+timeout $simulateTime /home/ojfiles/build/student_exe >/home/ojfiles/student_result
 if [ $? -ne 0 ]; then
   print 2 "SIMULATE ERROR."
   quit_oj
@@ -111,8 +114,12 @@ fi
 
 diff /home/ojfiles/student_result /home/ojfiles/teacher_result >/home/ojfiles/result.diff
 
+else
+	# There is not a main test point
+	echo NO > /home/ojfiles/result.diff
+fi
+
 if test -s /home/ojfiles/result.diff; then
-  
   # testbench wrong and, no sub testbench.	
   if [[ "$testPointNum" == "-1" ]]; then
     print 3 "All" "All Wrong"
@@ -120,64 +127,63 @@ if test -s /home/ojfiles/result.diff; then
   fi
 
   for ((i = 0; i < $testPointNum; i = i + 1)); do
-    mkdir /home/ojfiles/point$i
-
-    test_bench=$(ls /coursegrader/testdata/point$i/ 2>/dev/null | grep '.*_tb.v')
-
-    if [[ "$test_bench" == "" ]]; then
-      print 1 "no test_bench"
-      quit_oj
-    fi
-
-    cp /coursegrader/testdata/point$i/$test_bench /home/ojfiles/point$i/
-
-    finish_flag=$(grep "finish" /home/ojfiles/point$i/$test_bench)
-
-    if [ "$finish_flag" == "" ]; then
-      sed -i "/endmodule/i\initial begin #$finishTime "'$finish; end' /home/ojfiles/point$i/$test_bench
-    fi
-
-    teacher_files=$(ls /coursegrader/testdata/ 2>/dev/null | grep -v '.*_tb.v' | grep -v '.json')
-
-    cd /coursegrader/testdata/
-    iverilog -o /home/ojfiles/point$i/teacher_exe $teacher_files /home/ojfiles/point$i/$test_bench >&/home/ojfiles/point$i/teacher_logs
-
-    if [ ! -s "/home/ojfiles/point$i/teacher_exe" ]; then
-      errors=$(cat /home/ojfiles/point$i/teacher_logs | sed ':label;N;s/\n/\\\\n/;b label' 2>/dev/null)
+    # Compile teacher's answer for point i:
+    make teacher_exe TEST_POINT=$i > /home/ojfiles/make_log_teacher$i.txt 2>&1
+    # output: /home/ojfiles/build/teacher_exe
+    
+    # Something is wrong: make failed
+    if [ ! -s "/home/ojfiles/build/teacher_exe$i" ]; then
+      errors=$(cat /home/ojfiles/make_log_teacher$i.txt | sed ':label;N;s/\n/\\\\n/;b label' 2>/dev/null)
       print 1 "$errors"
       quit_oj
+ #   else 
+ #     cat /home/ojfiles/make_log_teacher$i.txt
     fi
-
-    timeout $simulateTime /home/ojfiles/point$i/teacher_exe >/home/ojfiles/point$i/teacher_result
-
+    
+    # run, if it costs longer than simulateTime, it will be killed.
+    timeout $simulateTime /home/ojfiles/build/teacher_exe$i >/home/ojfiles/teacher_result$i
+    
+    # # if return status is not zero, which means something wrong occured.
     if [ $? -ne 0 ]; then
-      print 1 "SIMULATE ERROR."
+      print 1 "SIMULATE $i ERROR, PLEASE CONTACT YOUR TA."
       quit_oj
     fi
 
-    iverilog -o /home/ojfiles/point$i/student_exe /coursegrader/submit/*.v /home/ojfiles/point$i/$test_bench >&/home/ojfiles/point$i/student_logs
-
-    if [ ! -s "/home/ojfiles/point$i/student_exe" ]; then
-      errors=$(cat /home/ojfiles/point$i/student_logs | sed ':label;N;s/\n/\\\\n/;b label' 2>/dev/null)
-      print 2 "$errors"
+    # Compile student's answer for point i:
+    make student_exe TEST_POINT=$i > /home/ojfiles/make_log_student$i.txt 2>&1
+    # output: /home/ojfiles/build/student_exe
+    
+    # Something is wrong: make failed
+    if [ ! -s "/home/ojfiles/build/student_exe$i" ]; then
+      errors=$(cat /home/ojfiles/make_log_student$i.txt | sed ':label;N;s/\n/\\\\n/;b label' 2>/dev/null)
+      print 1 "$errors"
       quit_oj
+  #  else 
+  #    cat /home/ojfiles/make_log_student$i.txt
     fi
 
-    timeout $simulateTime /home/ojfiles/point$i/student_exe >/home/ojfiles/point$i/student_result
+    timeout $simulateTime /home/ojfiles/build/student_exe$i >/home/ojfiles/student_result$i
     if [ $? -ne 0 ]; then
       print 2 "SIMULATE ERROR."
       quit_oj
     fi
 
-    diff /home/ojfiles/point$i/student_result /home/ojfiles/point$i/teacher_result >/home/ojfiles/point$i/result.diff
+    diff /home/ojfiles/student_result$i /home/ojfiles/teacher_result$i >/home/ojfiles/result.diff$i
 
-    if test -s /home/ojfiles/point$i/result.diff; then
+    if test -s /home/ojfiles/result.diff$i; then
       print 3 $i "Point $i Wrong"
     else
+      testPass=`expr $testPass + 1`
       print 0 $i
     fi
 
   done
+
+  if [[ "$testPass" == "0" ]]; then
+	print 3 -1 "PLEASE CHECK YOUR ANSWER!!!"
+  else 
+        print 5 "$testPass/$testPointNum POINT PASSED!!!"
+  fi
 
 else
   print 4
