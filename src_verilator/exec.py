@@ -319,13 +319,13 @@ def prepare_files(conf: dict):
     # print(test_ans_srcs)
     # main_test_tb_srcs must be non-empty, otherwise, it will raise an error
     if len(main_test_tb_srcs) == 0:
-        detail += "<br><p style='color:red'> No testbench! Please contact your TA. </p><br>"
+        detail += "<br><p style='color:#E74C3B'> No testbench! Please contact your TA. </p><br>"
     if len(test_ans_srcs) == 0:
-        detail += "<br><p style='color:red'> No answer! Please contact your TA. </p><br>"
+        detail += "<br><p style='color:#E74C3B'> No answer! Please contact your TA. </p><br>"
     if len(student_ans_srcs) == 0:
-        detail += "<br><p style='color:red'> No answer submitted! Please check your work. </p><br>"
+        detail += "<br><p style='color:#E74C3B'> No answer submitted! Please check your work. </p><br>"
     if len(other_necessary_files) != len(conf["nessasery_files"]):
-        detail += "<br><p style='color:red'> No necessary files! Please contact your TA. </p><br>"
+        detail += "<br><p style='color:#E74C3B'> No necessary files! Please contact your TA. </p><br>"
 
     return detail, [test_ans_srcs, main_test_tb_srcs, student_ans_srcs, other_necessary_files]
 
@@ -337,30 +337,30 @@ def compile_and_run(conf: dict, file_lists: list):
     # make main test
     p = make(conf["test_dst_path"] + "teacher/", test_ans_srcs, main_test_tb_srcs, other_necessary_files)
     if p[1] == 1:
-        detail += (f"<br><p style='color:red'> Compiling failed in teacher's code. Please contact your TA. <br>"
+        detail += (f"<br><p style='color:#E74C3B'> Compiling failed in teacher's code. Please contact your TA. <br>"
                    f"Error messages are as follows: </p><br>"
-                   f"<p style='background-color:yellow'> {p[0]} </p><br>")
+                   f"<div style='color:#E67D22; background-color:#F1F1F1;'> {p[0]} </div><br>")
 
     # make student ans
     p = make(conf["test_dst_path"] + "student/", student_ans_srcs, main_test_tb_srcs, other_necessary_files)
     if p[1] == 1:
-        detail += (f"<br><p style='color:red'> Compiling failed in your code. Please check your work. <br>"
+        detail += (f"<br><p style='color:#E74C3B'> Compiling failed in your code. Please check your work. <br>"
                    f"Error messages are as follows: </p><br>"
-                   f"<p style='background-color:yellow'> {p[0]} </p><br>")
+                   f"<div style='color:#E67D22; background-color:#F1F1F1;'> {p[0]} </div><br>")
 
     # main testpoint ready
     teacher_result = execute(conf["test_dst_path"] + "teacher/")
     if teacher_result[1] == 1:
-        detail += (f"<br><p style='color:red'> Executing failed in teacher's code. Please contact your TA. <br> "
+        detail += (f"<br><p style='color:#E74C3B'> Executing failed in teacher's code. Please contact your TA. <br> "
                    f"Error messages are as follows: </p><br> "
-                   f"<p style='background-color:yellow'> {teacher_result[0]} </p>")
+                   f"<div style='color:#E67D22; background-color:#F1F1F1;'> {teacher_result[0]} </div>")
 
     student_result = execute(conf["test_dst_path"] + "student/")
     # result file will store in the same directory
     if student_result[1] == 1:
-        detail += (f"<br><p style='color:red'> Executing failed in your code. <br> "
+        detail += (f"<br><p style='color:#E74C3B'> Executing failed in your code. <br> "
                    f"Error messages are as follows: </p><br> "
-                   f"<p style='background-color:yellow'> {student_result[0]} </p><br>")
+                   f"<div style='color:#E67D22; background-color:#F1F1F1;'> {student_result[0]} </div><br>")
 
     teacher_result[0] = teacher_result[0].split("<br>")
     student_result[0] = student_result[0].split("<br>")
@@ -452,8 +452,8 @@ if __name__ == '__main__':
         sig_and_val = [[[] for i in range(len(sig_names))], [[] for i in range(len(sig_names))]]
         sig_and_val_compact = [[[] for i in range(len(sig_names))], [[] for i in range(len(sig_names))]]
 
-        start_line = max(0, first_mismatch_line - 50)
-        end_line = min(min(ttl_cnt, len(student_result_list)), first_mismatch_line + 50)
+        start_line = max(0, first_mismatch_line - 200)
+        end_line = min(min(ttl_cnt, len(student_result_list)), first_mismatch_line + 200)
 
         wave = {
             "signal": [
@@ -464,12 +464,17 @@ if __name__ == '__main__':
                     "yours",  # {"name":"", "wave":""}, {"name":"", "wave":""}, {"name":"", "wave":""}
                 ]
             ],
-            "config": {
-                "hscale": 0.5
-            },
             "edge": [
                 # edges
-            ]
+            ],
+            "head": {
+                "text": 'Wave Diff',
+                "tick": 0,
+                "every": 2
+            },
+            "config": {
+                "skin": "narrow"
+            },
         }
 
         test_results = [teacher_result_list, student_result_list]
@@ -553,13 +558,14 @@ if __name__ == '__main__':
         r = difflib.SequenceMatcher(None, teacher_result_list, student_result_list).ratio()
 
     if abs(r - 1) < 1e-8:
-        colour = "#0f0"
+        colour = "#5EB95E"
     elif abs(r) > 1e-8:
-        colour = "#ff0"
+        colour = "#E67D22"
     else:
-        colour = "#f00"
+        colour = "#E74C3B"
 
-    detail += (
+    detailx = ""
+    detailx += (
         f'<div style="background-color: {colour}; padding: 0.5rem; display: inline-block; flex-direction: row; width: 100pt; height: 100pt;" class="button" onclick="collapse()" title="点击展示/隐藏本测试点波形">'
         f'<div style="float:left;" >'
         f'#1'
@@ -571,8 +577,15 @@ if __name__ == '__main__':
     )
 
     if len(svg_string) != 0:
-        detail += ('<br>'
-                   f"<div style='width:1000px;overflow:auto;background:#EEEEEE;' id='svg_wave' >{svg_string}</div>")
+        if err_cnt != 0:
+            detailx += ('<br>'
+                       f"<div style='width:2000px;overflow:auto;background:#EEEEEE;' id='svg_wave' >{svg_string}</div>")
+        else:
+            detailx += ('<br>'
+                        f"<div style='width:2000px;overflow:auto;background:#EEEEEE;display:none' id='svg_wave' >{svg_string}</div>")
+
+    detail = detailx + detail
+    detail += "<div style='width:2000px;' > </div>"
 
     if config_dict['no_frac_points']:
         mark = 100 if abs(r - 1) < 1e-8 else 0
