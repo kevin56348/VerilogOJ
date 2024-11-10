@@ -280,24 +280,25 @@ def generate_html_output(CG_result: dict):
 
     html_blk.add_title("测试结果")
     html_blk.add_script(
-        """function changeText()
-            {{
-                if (document.getElementById("btn").value != "隐藏波形"){{
-                    document.getElementById("btn").value = "隐藏波形";
-                }}else{{
-                    document.getElementById("btn").value = "显示波形";
-                }}
-            }}
+        """// function changeText()
+           //  {
+           //      if (document.getElementById("btn").value != "隐藏波形"){
+           //          document.getElementById("btn").value = "隐藏波形";
+           //      }else{
+           //          document.getElementById("btn").value = "显示波形";
+           //      }
+           //  }
             
-            function collapse()
-            {{
-                if (document.getElementById("svg_wave").style.visibility != "hidden"){{
-                    document.getElementById("svg_wave").style.visibility = "hidden";
-                }}else{{
-                    document.getElementById("svg_wave").style.visibility = "visible";
-                }}
-                changeText();
-            }}"""
+            function collapse(number_test)
+            {
+                ele = document.getElementById("svg_wave_"+number_test);
+                if (ele.style.display != "none"){
+                    ele.style.display = "none";
+                }else{
+                    ele.style.display = "block";
+                }
+                // changeText();
+            }"""
     )
     html_blk.add_style(
         """body {
@@ -455,7 +456,8 @@ def compile_and_run(conf: dict, file_lists: list):
     # make main test
     comp_teacher = make(conf["test_dst_path"] + "teacher/", test_ans_srcs, main_test_tb_srcs, other_necessary_files)
     if comp_teacher[1] == 1:
-        detail += html_blk.add_p("Compiling failed in teacher's code. Please contact your TA.", html_blk.error_color_dic)
+        detail += html_blk.add_p("Compiling failed in teacher's code. Please contact your TA.",
+                                 html_blk.error_color_dic)
         detail += html_blk.add_p("Error messages are as follows:")
         detail += html_blk.add_div(comp_teacher[0], html_blk.warn_color_dic)
 
@@ -469,7 +471,8 @@ def compile_and_run(conf: dict, file_lists: list):
     # main testpoint ready
     teacher_result = execute(conf["test_dst_path"] + "teacher/")
     if teacher_result[1] == 1:
-        detail += html_blk.add_p("Executing failed in teacher's code. Please contact your TA.", html_blk.error_color_dic)
+        detail += html_blk.add_p("Executing failed in teacher's code. Please contact your TA.",
+                                 html_blk.error_color_dic)
         detail += html_blk.add_p("Error messages are as follows:")
         detail += html_blk.add_div(teacher_result[0], html_blk.warn_color_dic)
 
@@ -488,7 +491,7 @@ def compile_and_run(conf: dict, file_lists: list):
     return detail, teacher_result, student_result
 
 
-def generate_wave(test_results: list, first_mismatch_line: int):
+def generate_wave(test_results: list, first_mismatch_line: int, ttl_cnt):
     wave = {
         "signal": [
             [
@@ -576,19 +579,8 @@ def generate_wave(test_results: list, first_mismatch_line: int):
 
     return svg_string
 
-if __name__ == '__main__':
-    config_dict = {
-        "config_path": "/coursegrader/testdata/config.yaml",
-        "test_src_path": "/coursegrader/testdata/",
-        "submit_src_path": "/coursegrader/submit/",
-        "test_dst_path": "/home/ojfiles/",
-        "nessasery_files": [],
-        # default: only one testpoint
-        "test_point_number": 0,
-        "test_point_names": [],
-        "no_frac_points": True
-    }
 
+def judge_one(config_dict: dict, number_test: int) -> dict:
     CG_result = {
         "detail": "",
         "verdict": "",
@@ -610,25 +602,17 @@ if __name__ == '__main__':
     ttl_cnt = 0
     ce_flag = False
     er_flag = False
-
     teacher_result_list = []
     student_result_list = []
-
-    # please ignore spelling mistakes
-    # reading configurations from /coursegrader/testdata/config.yaml
-    load_param(config_dict)
-    # if the yaml file doesn't exist, act as older OJs
+    svg_string = ""
 
     # to prepare answer, testbench, student's answer & other files required by the yaml file.
     d, file_lists = prepare_files(config_dict)
     detail += d
     test_ans_srcs, main_test_tb_srcs, student_ans_srcs, other_necessary_files = file_lists
-
     # compile and run.
     d, teacher_result, student_result = compile_and_run(config_dict, file_lists)
     detail += d
-
-    svg_string = ""
 
     ce_flag = teacher_result[1] == 1 or student_result[1] == 1
 
@@ -654,7 +638,7 @@ if __name__ == '__main__':
 
         test_results = [teacher_result_list, student_result_list]
 
-        svg_string = generate_wave(test_results, first_mismatch_line)
+        svg_string = generate_wave(test_results, first_mismatch_line, ttl_cnt)
 
         err_cnt = 0 if first_mismatch_line == -1 else 1
 
@@ -670,7 +654,6 @@ if __name__ == '__main__':
         verdict = "AC"
         r = 1
         test_passed += 1
-        is_pass = True
     elif not config_dict['no_frac_points'] and r >= 0.60:
         colour = "#E67D22"
         verdict = "PC"
@@ -681,7 +664,7 @@ if __name__ == '__main__':
         comment = "Wrong Answer"
 
     html_blk.stop_append()
-    div_num = html_blk.add_div("#1", {"style": {"float": "left"}})
+    div_num = html_blk.add_div(f"#{number_test}", {"style": {"float": "left"}})
     div_verdict = html_blk.add_div(f"{verdict}", {"class": "v-align"})
 
     detail += html_blk.add_div(f"{div_num} {div_verdict}", {
@@ -694,25 +677,30 @@ if __name__ == '__main__':
             "height": "10em",
         },
         "class": "button",
-        "onclick": "collapse()",
+        "onclick": f"collapse({number_test})",
         "title": "点击展示/隐藏本测试点波形"
     })
 
     if len(svg_string) != 0:
         if err_cnt != 0:
-            vis = "visible"
+            vis = "block"
         else:
-            vis = "hidden"
+            vis = "none"
 
         detail += html_blk.add_div(f"{svg_string}", {
             "style": {
                 "width": "100%",
                 "overflow": "auto",
                 "background-color": "#EEEEEE",
-                "visibility": vis
+                "display": vis
             },
-            "id": "svg_wave"
+            "id": f"svg_wave_{number_test}"
         })
+    detail += html_blk.add_div(f" ", {
+        "style": {
+            "width": "100vh",
+        },
+    })
 
     if config_dict['no_frac_points']:
         mark = 100 if abs(r - 1) < 1e-8 else 0
@@ -727,121 +715,83 @@ if __name__ == '__main__':
     CG_result.update({"comment": f"{comment}"})
     CG_result.update({"detail": f"{detail}"})
 
-    CG_result = generate_html_output(CG_result)
+    # CG_result = generate_html_output(CG_result)
 
-    sub_mark = []
+    return CG_result
 
-    output_final = json.dumps(CG_result)
-    if is_pass:
-        quitx(output_final)
-        # pass
 
-    # not pass
-    if config_dict["test_point_number"] == 0:
-        # nothing to test
-        # end 
-        quitx(output_final)
+if __name__ == '__main__':
+    """ ==========================================================
+                           LOADING CONFIG...
+        =========================================================="""
 
-    # something to test
-    if len(config_dict["test_point_names"]) != 0 and len(config_dict["test_point_names"]) != config_dict[
+    config_dict = {
+        "config_path": "/coursegrader/testdata/config.yaml",
+        "test_src_path": "/coursegrader/testdata/",
+        "submit_src_path": "/coursegrader/submit/",
+        "test_dst_path": "/home/ojfiles/",
+        "nessasery_files": [],
+        # default: only one testpoint
+        "test_point_number": 0,
+        "test_point_names": [],
+        "no_frac_points": True
+    }
+
+    # please ignore spelling mistakes
+    # reading configurations from /coursegrader/testdata/config.yaml
+    load_param(config_dict)
+    # if the yaml file doesn't exist, act as older OJs
+
+    mark = 0
+
+    """ ==========================================================
+                          JUDGE MAIN TEST POINT
+        =========================================================="""
+    CG_result = judge_one(config_dict, 1)
+
+    if CG_result['score'] == "100" or config_dict["test_point_number"] == 0 or len(
+            config_dict["test_point_names"]) != 0 and len(config_dict["test_point_names"]) != config_dict[
         "test_point_number"]:
+        CG_result = generate_html_output(CG_result)
+        output_final = json.dumps(CG_result)
         quitx(output_final)
+
+    """ ==========================================================
+                        JUDGE SUB TEST POINTS
+        =========================================================="""
 
     test_cnt = config_dict["test_point_number"]
 
-    for i in range(config_dict["test_point_number"]):
+    for i in range(test_cnt):
+        config_bk = config_dict.copy()
+
         sub_test_tb_src = []
-        if len(config_dict["test_point_names"]) == 0:
+        if len(config_bk["test_point_names"]) == 0:
             sub_test_name = f"point{i}"
         else:
-            sub_test_name = config_dict["test_point_names"][i]
+            sub_test_name = config_bk["test_point_names"][i]
 
         # print(f"entering {sub_test_name}")
+        config_bk.update({"test_src_path": os.path.join(config_dict["test_src_path"], sub_test_name)})
+        config_bk.update({"test_dst_path": os.path.join(config_dict["test_dst_path"], sub_test_name)})
 
-        for d in os.listdir(os.path.join(config_dict["test_src_path"], sub_test_name)):
-            # print(d[-5:])
-            if d[-5:] == '_tb.v':
-                # this is a testbench
-                sub_test_tb_src.append(os.path.join(os.path.join(config_dict["test_src_path"], sub_test_name), d))
+        CG_result_sub = judge_one(config_bk, i + 2)
 
-        other_necessary_files = []
+        CG_result.update({"comment": f"{CG_result['comment']} <br> {CG_result_sub['comment']}"})
+        CG_result.update({"detail": f"{CG_result['detail']} <br> {CG_result_sub['detail']}"})
 
-        for f in config_dict["nessasery_files"]:
-            other_necessary_files.append(os.path.join(os.path.join(config_dict["test_src_path"], sub_test_name), f))
+        if CG_result_sub['score'] == "100":
+            mark += 1
 
-        # print(sub_test_tb_src)
-        # just replace testbenches with the new
-
-        # make main test
-        p = make(config_dict["test_dst_path"] + "teacher/", test_ans_srcs, sub_test_tb_src, other_necessary_files)
-        # print(p)
-
-        # make student ans
-        p = make(config_dict["test_dst_path"] + "student/", student_ans_srcs, sub_test_tb_src, other_necessary_files)
-        # print(p)
-
-        # main testpoint ready
-        teacher_result = (execute(config_dict["test_dst_path"] + "teacher/")).splitlines()
-
-        student_result = (execute(config_dict["test_dst_path"] + "student/")).splitlines()
-
-        err_cnt = 0
-        ttl_cnt = 0
-
-        CG_result = {}
-
-        teacher_result_list = []
-        student_result_list = []
-
-        for k in teacher_result:
-            # k = k.decode('utf-8', 'ignore')
-            teacher_result_list.append(k)
-            if k[:7] == 'monitor':
-                ttl_cnt += 1
-        for k in student_result:
-            # k = k.decode('utf-8', 'ignore')
-            student_result_list.append(k)
-
-        diffs = difflib.context_diff(teacher_result_list, student_result_list)
-        err_cnt = 0
-        for k in diffs:
-            err_cnt += 1
-            if err_cnt < 9:
-                detail += f"<p>\n{k}</p>"
-            else:
-                break
-
-        if err_cnt == 0:
-            test_passed += 1
-
-        r = difflib.SequenceMatcher(None, teacher_result_list, student_result_list).ratio()
-        # detail += f"<p>\n{r*100}% correct for subtestpoint{i}!!!</p>"
-        if abs(r - 1) < 1e-8:
-            colour = "#0f0"
-        elif abs(r) > 1e-8:
-            colour = "#ff0"
-        else:
-            colour = "#f00"
-
-        detail += f'<div style="background-color: {colour}; padding: 0.5rem; display: flex; flex-direction: row; width: 100pt; height: 100pt;">  <p style="font: small-caps bold 1.2rem sans-serif; text-align: center;">\n{r * 100}% correct for subtestpoint{i}!!!</p> </div>'
-        if config_dict['no_frac_points']:
-            sub_mark.append(100 if abs(r - 1) < 1e-8 else 0)
-        else:
-            sub_mark.append(r * 100)
-
-    comment += f"\n{test_passed}/{test_cnt} testpoint passed!!!"
-    mark = 0
-    for i in sub_mark:
-        mark += i
-
-    CG_result.update({"verdict": f"{verdict}"})
-    CG_result.update({"HTML": f"{HTML}"})
     CG_result.update({"score": f"{mark}"})
-    CG_result.update({"comment": f"{comment}"})
-    CG_result.update({"detail": f"{detail}"})
 
-    # json.dumps(CG_result)
+    if mark == 0:
+        CG_result.update({"verdict": f"WA"})
+    elif mark != test_cnt and not config_dict['no_frac_points']:
+        CG_result.update({"verdict": f"PC"})
+    else:
+        CG_result.update({"verdict": f"AC"})
 
-    output_final = generate_html_output(CG_result)
-    output_final = json.dumps(output_final)
+    CG_result = generate_html_output(CG_result)
+    output_final = json.dumps(CG_result)
     quitx(output_final)
