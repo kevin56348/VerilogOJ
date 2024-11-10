@@ -198,7 +198,7 @@ def generate_html_output(CG_result: dict):
         <style>
             .v-align {{
                 margin: 0 auto;
-                font: small-caps bold 1.2rem sans-serif;
+                font: small-caps bold 1.8rem sans-serif;
                 width: 100px;
                 height: 100px;
                 text-align: center;
@@ -392,7 +392,7 @@ if __name__ == '__main__':
     detail = ""
     is_pass = False
     mark = 0
-    verdict = "WA!!!"
+    verdict = "WA"
     HTML = True
     comment = ""
     test_passed = 0
@@ -400,6 +400,7 @@ if __name__ == '__main__':
     last_err = ""
     err_cnt = 0
     ttl_cnt = 0
+    ce_flag = False
 
     teacher_result_list = []
     student_result_list = []
@@ -425,6 +426,7 @@ if __name__ == '__main__':
         # something is wrong, error.
         err_cnt = 1
         ttl_cnt = 1
+        ce_flag = True
     else:
         for i in teacher_result[0]:
             if i[:7] == 'monitor':
@@ -530,51 +532,38 @@ if __name__ == '__main__':
 
         err_cnt = 0 if first_mismatch_line == -1 else 1
 
-        # diffs = difflib.context_diff(teacher_result_list, student_result_list)
-        # err_cnt = 0
-        # for i in diffs:
-        #     err_cnt += 1
-        #     if err_cnt == 1:
-        #         detail += "<br><p style='color:blue'> Diffs are as follows: </p><br>"
-        #     if err_cnt < 9:
-        #         detail += f"<br>{i}"
-        #     else:
-        #         break
 
-    # print(f"{ttl_cnt - err_cnt}/{ttl_cnt} lines correct for main testpoint!!!")
+    r = difflib.SequenceMatcher(None, teacher_result_list, student_result_list).ratio()
 
-    if err_cnt == 0:
-        # pass
+    if ce_flag:
+        colour = "#9E3DD0"
+        verdict = "CE"
+        r = 0
+    elif err_cnt == 0:
+        comment = "Accepted"
+        colour = "#5EB95E"
+        verdict = "AC"
+        r = 1
         test_passed += 1
         is_pass = True
-        verdict = "AC!!!"
-        comment = f"testpoint passed!!!"
-    else:
-        comment = f"main testpoint wrong!!!"
-
-    if student_result[1] == 1 or student_result[1] == 1:
-        r = 0
-    else:
-        r = difflib.SequenceMatcher(None, teacher_result_list, student_result_list).ratio()
-
-    if abs(r - 1) < 1e-8:
-        colour = "#5EB95E"
-    elif abs(r) > 1e-8:
+    elif not config_dict['no_frac_points'] and r >= 0.60:
         colour = "#E67D22"
+        verdict = "PC"
+        comment = "Partially Correct"
     else:
         colour = "#E74C3B"
+        verdict = "WA"
+        comment = "Wrong Answer"
 
     detailx = ""
     detailx += (
         f'<div style="background-color: {colour}; padding: 0.5rem; display: inline-block; flex-direction: row; width: 100pt; height: 100pt;" class="button" onclick="collapse()" title="点击展示/隐藏本测试点波形">'
-        f'<div style="float:left;" >'
-        f'#1'
-        f'</div>'
-        f'<div class="v-align">'
-        f'{("AC" if abs(r - 1) < 1e-8 else "WA") if config_dict["no_frac_points"] else str(int(r * 10000) / 100) + "%"}'
-        f'</div>'
-        f'</div>'
-    )
+        '<div style="float:left;" >'
+        '#1'
+        '</div>'
+        '<div class="v-align">'
+        f'{verdict}'
+        "</div></div>")
 
     if len(svg_string) != 0:
         if err_cnt != 0:
