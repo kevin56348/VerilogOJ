@@ -61,6 +61,149 @@ FINAL_EXE_NAME = "___XXX_DO_NOT_CHANGE_THIS_EXECUTABLE"
 # |     |       |- teacher
 # |     |       |- student
 
+class HtmlBlock:
+    def __init__(self):
+        self.html = ""
+        self.script = ""
+        self.title = ""
+        self.style = ""
+        self.contents = []
+        self.cnt = 0
+        self.app = True
+
+        self.error_color_dic = {
+            "style": {
+                "color": "#E74C3B"
+            }
+        }
+        self.warn_color_dic = {
+            "style": {
+                "color": "#E67D22",
+                "background-color": "#F1F1F1"
+            }
+        }
+
+    def stop_append(self):
+        self.app = False
+
+    def start_append(self):
+        self.app = True
+
+    def get_append(self):
+        return self.app
+
+    def set_append(self, value):
+        self.app = value
+
+    def parse_dic(self, dic: dict):
+        p = ""
+        if dic is None:
+            dic = {}
+        for d in dic.keys():
+            if type(dic[d]) == dict:
+                p += f"{d}='"
+                for dd in dic[d].keys():
+                    p += f"{dd}:{dic[d][dd]};"
+                p += "' "
+            else:
+                p += f"{d}='{dic[d]}' "
+        return p
+
+    def generate_html(self, supp=None) -> str:
+        if supp is None:
+            supp = []
+        self.html = (f"<html>"
+                     f"<head>"
+                     f"<title> {self.title} </title>"
+                     f"<script> {self.script} </script>"
+                     f"<style> {self.style} </style>"
+                     f"</head>"
+                     f"<body>")
+        if type(supp) == str:
+            self.html += supp
+        elif type(supp) == list:
+            for i in supp:
+                self.html += f"{i}"
+        for i in range(len(self.contents)):
+            self.html += self.contents[i]
+        self.html += (f"</body>"
+                      f"</html>")
+        return self.html
+
+    def add_script(self, script: str):
+        self.script += f"\n {script} \n"
+
+    def add_title(self, title: str):
+        self.title = f"\n {title} \n"
+
+    def add_style(self, style: str):
+        self.style += f"\n {style} \n"
+
+    def add_table(self, table_head: list, table_body: list):
+        head = ""
+        body = ""
+        for i in table_head:
+            head += f"<th> {i} </th>"
+        head = f"<thead><tr> {head} </tr></thead>"
+        for r in table_body:
+            row = ""
+            for c in r:
+                if type(c) != list:
+                    row += f"<td> {c} </td>"
+                else:
+                    row += f"<td {c[1]}> {c[0]} </td>"
+            body += f"<tr> {row} </tr>"
+        body = f"<tbody> {body} </tbody>"
+        if self.app:
+            self.contents.append(f"<table> {head} {body} </table>")
+            self.cnt += 1
+        else:
+            return f"<table> {head} {body} </table>"
+
+    def add_p(self, p: str, dic=None):
+        p = f"<p {self.parse_dic(dic)}> {p} </p>"
+        if self.app:
+            self.contents.append(p)
+            self.cnt += 1
+        else:
+            return p
+
+    def add_multi_par(self, px: list, dic=None):
+        mp = ""
+        for i in px:
+            mp += f"{i}<br>"
+        p = f"<p {self.parse_dic(dic)}> {mp} </p>"
+        if self.app:
+            self.contents.append(p)
+            self.cnt += 1
+        else:
+            return p
+
+    def add_h(self, h: str, lv: int):
+        if self.app:
+            self.contents.append(f"<h{lv}>{h}</h{lv}>")
+            self.cnt += 1
+        else:
+            return f"<h{lv}>{h}</h{lv}>"
+
+    def add_div(self, div: list or str, dic=None):
+        mp = ""
+        if type(div) == str:
+            mp = f"<div {self.parse_dic(dic)}>{div}</div>"
+        else:
+            for i in div:
+                mp += f"{i}<br>"
+            mp = f"<div {self.parse_dic(dic)}> {mp} </p>"
+        if self.app:
+            self.contents.append(mp)
+            self.cnt += 1
+        else:
+            return mp
+
+
+html_blk = HtmlBlock()
+
+
 def make(dst: str, ans: list, tb: list, onf: list) -> [str, int]:
     """
     This function aims to compile every *.v files into an executable.
@@ -132,14 +275,12 @@ def generate_html_output(CG_result: dict):
     xx = detail.replace('\\n', '<br>')
     xx = xx.replace('\\r', '<br>')
 
-    # 使用HTML表格展示结果
-    html_content = f"""
-    <html>
-    <head>
-        <title>测试结果</title>
-        
-        <script>
-            function changeText()
+    app = html_blk.get_append()
+    html_blk.start_append()
+
+    html_blk.add_title("测试结果")
+    html_blk.add_script(
+        """function changeText()
             {{
                 if (document.getElementById("btn").value != "隐藏波形"){{
                     document.getElementById("btn").value = "隐藏波形";
@@ -147,66 +288,60 @@ def generate_html_output(CG_result: dict):
                     document.getElementById("btn").value = "显示波形";
                 }}
             }}
-                    
+            
             function collapse()
             {{
-                if (document.getElementById("svg_wave").style.display != "none"){{
-                    document.getElementById("svg_wave").style.display = "none";
+                if (document.getElementById("svg_wave").style.visibility != "hidden"){{
+                    document.getElementById("svg_wave").style.visibility = "hidden";
                 }}else{{
-                    document.getElementById("svg_wave").style.display = "";
+                    document.getElementById("svg_wave").style.visibility = "visible";
                 }}
                 changeText();
-            }}
-
-        </script>
-
-        <style>
-            body {{
+            }}"""
+    )
+    html_blk.add_style(
+        """body {
                 font-family: Arial, sans-serif;
                 margin: 20px;
                 background-color: #f4f4f4;
-            }}
-            h1 {{
+            }
+            h1 {
                 color: #333;
-            }}
-            table {{
+            }
+            table {
                 width: 100%;
                 border-collapse: collapse;
                 margin: 20px 0;
-            }}
-            table, th, td {{
+            }
+            table, th, td {
                 border: 1px solid #ccc;
                 padding: 10px;
                 text-align: left;
-            }}
-            th {{
+            }
+            th {
                 background-color: #f2f2f2;
-            }}
-            tr:nth-child(even) {{
+            }
+            tr:nth-child(even) {
                 background-color: #f9f9f9;
-            }}
-            .verdict {{
+            }
+            .verdict {
                 font-weight: bold;
                 font-size: 1.2em;
-            }}
-            .comment {{
+            }
+            .comment {
                 font-style: italic;
                 color: #555;
-            }}
-        </style>
-        
-        <style>
-            .v-align {{
+            }
+            .v-align {
                 margin: 0 auto;
                 font: small-caps bold 1.8rem sans-serif;
-                width: 100px;
-                height: 100px;
+                width: 5em;
+                height: 5em;
                 text-align: center;
-                line-height: 100px;
+                line-height: 5em;
                 border: 0px solid #ddd;
-            }}
-        
-            .button {{
+            }
+            .button {
                 background-color: #4CAF50;
                 border: none;
                 color: white;
@@ -215,54 +350,33 @@ def generate_html_output(CG_result: dict):
                 display: inline-block;
                 font-size: 16px;
                 cursor: pointer;
-            }}
-
-
-            .button:hover {{
+            }
+            .button:hover {
                 box-shadow:
                 inset 0 -3em 3em rgba(0, 0, 0, 0.1),
                 0 0 0 0px rgb(255, 255, 255),
                 0.3em 0.3em 1em rgba(0, 0, 0, 0.3);
-            }}
-		
-            .button a {{
+            }
+            .button a {
                 display: none;     
-            }}
- 
-            .button:hover a {{
+            }
+            .button:hover a {
                 display: initial;     
-            }}
-        </style>
+            }
+        """
+    )
+    html_blk.stop_append()
+    h1 = html_blk.add_h("测试结果", 1)
+    tab = html_blk.add_table(["项目", "结果"],
+                             [
+                                 ["判定", [f"{verdict}", "class='verdict'"]],
+                                 ["得分", f"{score}"],
+                                 ["评论", [f"{comment}", "class='comment'"]],
+                                 ["详细信息", f"{xx}"]
+                             ])
 
-    </head>
-    
-    <body>
-        <h1>测试结果</h1>
-        <table>
-            <tr>
-                <th>项目</th>
-                <th>结果</th>
-            </tr>
-            <tr>
-                <td>判定</td>
-                <td class="verdict">{verdict}</td>
-            </tr>
-            <tr>
-                <td>得分</td>
-                <td>{score}</td>
-            </tr>
-            <tr>
-                <td>评论</td>
-                <td class="comment">{comment}</td>
-            </tr>
-            <tr>
-                <td>详细信息</td>  
-                <td>{xx}</td> <!-- 使用<br>换行 -->
-            </tr>
-        </table>
-    </body>
-    </html>
-    """
+    html_content = html_blk.generate_html([h1, tab])
+    html_blk.set_append(app)
 
     CG_result.update({"detail": html_content})
     return CG_result
@@ -294,8 +408,6 @@ def prepare_files(conf: dict):
     student_ans_srcs = []
     other_necessary_files = []
 
-    detail = ""
-
     # To find all necessary files
     # These files will be copied to dst
     if len(conf["nessasery_files"]) != 0:
@@ -318,55 +430,151 @@ def prepare_files(conf: dict):
     # print(main_test_tb_srcs)
     # print(test_ans_srcs)
     # main_test_tb_srcs must be non-empty, otherwise, it will raise an error
+
+    detail = ""
+    app = html_blk.get_append()
+    html_blk.stop_append()
     if len(main_test_tb_srcs) == 0:
-        detail += "<br><p style='color:#E74C3B'> No testbench! Please contact your TA. </p><br>"
+        detail += html_blk.add_p("No testbench! Please contact your TA.", html_blk.error_color_dic)
     if len(test_ans_srcs) == 0:
-        detail += "<br><p style='color:#E74C3B'> No answer! Please contact your TA. </p><br>"
+        detail += html_blk.add_p("No answer! Please contact your TA.", html_blk.error_color_dic)
     if len(student_ans_srcs) == 0:
-        detail += "<br><p style='color:#E74C3B'> No answer submitted! Please check your work. </p><br>"
+        detail += html_blk.add_p("No answer submitted! Please check your work.", html_blk.error_color_dic)
     if len(other_necessary_files) != len(conf["nessasery_files"]):
-        detail += "<br><p style='color:#E74C3B'> No necessary files! Please contact your TA. </p><br>"
+        detail += html_blk.add_p("No necessary files! Please contact your TA.", html_blk.error_color_dic)
+    html_blk.set_append(app)
 
     return detail, [test_ans_srcs, main_test_tb_srcs, student_ans_srcs, other_necessary_files]
 
 
 def compile_and_run(conf: dict, file_lists: list):
-    detail = ""
     test_ans_srcs, main_test_tb_srcs, student_ans_srcs, other_necessary_files = file_lists
-
+    detail = ""
+    app = html_blk.get_append()
+    html_blk.stop_append()
     # make main test
-    p = make(conf["test_dst_path"] + "teacher/", test_ans_srcs, main_test_tb_srcs, other_necessary_files)
-    if p[1] == 1:
-        detail += (f"<br><p style='color:#E74C3B'> Compiling failed in teacher's code. Please contact your TA. <br>"
-                   f"Error messages are as follows: </p><br>"
-                   f"<div style='color:#E67D22; background-color:#F1F1F1;'> {p[0]} </div><br>")
+    comp_teacher = make(conf["test_dst_path"] + "teacher/", test_ans_srcs, main_test_tb_srcs, other_necessary_files)
+    if comp_teacher[1] == 1:
+        detail += html_blk.add_p("Compiling failed in teacher's code. Please contact your TA.", html_blk.error_color_dic)
+        detail += html_blk.add_p("Error messages are as follows:")
+        detail += html_blk.add_div(comp_teacher[0], html_blk.warn_color_dic)
 
     # make student ans
-    p = make(conf["test_dst_path"] + "student/", student_ans_srcs, main_test_tb_srcs, other_necessary_files)
-    if p[1] == 1:
-        detail += (f"<br><p style='color:#E74C3B'> Compiling failed in your code. Please check your work. <br>"
-                   f"Error messages are as follows: </p><br>"
-                   f"<div style='color:#E67D22; background-color:#F1F1F1;'> {p[0]} </div><br>")
+    comp_student = make(conf["test_dst_path"] + "student/", student_ans_srcs, main_test_tb_srcs, other_necessary_files)
+    if comp_student[1] == 1:
+        detail += html_blk.add_p("Compiling failed in your code. Please check your work.", html_blk.error_color_dic)
+        detail += html_blk.add_p("Error messages are as follows:")
+        detail += html_blk.add_div(comp_student[0], html_blk.warn_color_dic)
 
     # main testpoint ready
     teacher_result = execute(conf["test_dst_path"] + "teacher/")
     if teacher_result[1] == 1:
-        detail += (f"<br><p style='color:#E74C3B'> Executing failed in teacher's code. Please contact your TA. <br> "
-                   f"Error messages are as follows: </p><br> "
-                   f"<div style='color:#E67D22; background-color:#F1F1F1;'> {teacher_result[0]} </div>")
+        detail += html_blk.add_p("Executing failed in teacher's code. Please contact your TA.", html_blk.error_color_dic)
+        detail += html_blk.add_p("Error messages are as follows:")
+        detail += html_blk.add_div(teacher_result[0], html_blk.warn_color_dic)
 
     student_result = execute(conf["test_dst_path"] + "student/")
     # result file will store in the same directory
     if student_result[1] == 1:
-        detail += (f"<br><p style='color:#E74C3B'> Executing failed in your code. <br> "
-                   f"Error messages are as follows: </p><br> "
-                   f"<div style='color:#E67D22; background-color:#F1F1F1;'> {student_result[0]} </div><br>")
+        detail += html_blk.add_p("Executing failed in your code. Please check your work.", html_blk.error_color_dic)
+        detail += html_blk.add_p("Error messages are as follows:")
+        detail += html_blk.add_div(student_result[0], html_blk.warn_color_dic)
 
     teacher_result[0] = teacher_result[0].split("<br>")
     student_result[0] = student_result[0].split("<br>")
 
+    html_blk.set_append(app)
+
     return detail, teacher_result, student_result
 
+
+def generate_wave(test_results: list, first_mismatch_line: int):
+    wave = {
+        "signal": [
+            [
+                "ref",  # {"name":"", "wave":""}, {"name":"", "wave":""}, {"name":"", "wave":""}
+            ],
+            [
+                "yours",  # {"name":"", "wave":""}, {"name":"", "wave":""}, {"name":"", "wave":""}
+            ]
+        ],
+        "edge": [
+            # edges
+        ],
+        "head": {
+            "text": 'Wave Diff',
+            "tick": 0,
+            "every": 2
+        },
+        "config": {
+            "skin": "narrow"
+        },
+    }
+
+    sig_names = []
+
+    # find all signal names we captured
+    sig_n_val = re.split('[,:]', test_results[0][0])
+    for i in sig_n_val:
+        r = re.split('=', i)
+        sig_names.append(r[0])
+
+    sig_and_val = [[[] for i in range(len(sig_names))], [[] for i in range(len(sig_names))]]
+    sig_and_val_compact = [[[] for i in range(len(sig_names))], [[] for i in range(len(sig_names))]]
+
+    start_line = max(0, first_mismatch_line - 200)
+    end_line = min(min(ttl_cnt, len(test_results[1])), first_mismatch_line + 200)
+
+    for i in wave['signal']:
+        for j in range(len(sig_names)):
+            i.append({"name": f"{sig_names[j]}", "wave": "", "node": ""})
+
+    for _ in range(len(wave['signal'])):
+        # last_clk = 'x'
+        for i in range(start_line, end_line):
+            sig_n_val = re.split('[,:]', test_results[_][i])
+            # ok_flag = False
+            for j in range(len(sig_names)):
+                r = re.split('=', sig_n_val[j])
+                # if ok_flag or r[0] == "clk" and r[1] != last_clk:
+                if r[0] == "clk":
+                    # last_clk = r[1]
+                    sig_and_val[_][j].append(
+                        'h' if r[1] == '1' else 'l'
+                    )
+                else:
+                    sig_and_val[_][j].append(r[1])
+                    # ok_flag = True
+                # else:
+                #     break
+
+        # compress data
+        # 10100001 will convert to 1010...1
+        for i in range(len(sig_names)):
+            last_d = "x"
+            sig_and_val_compact[_][i].append(sig_and_val[_][i][0])
+            for j in range(1, len(sig_and_val[_][i])):
+                if sig_and_val[_][i][j] == sig_and_val[_][i][j - 1]:
+                    sig_and_val_compact[_][i].append('.')
+                else:
+                    sig_and_val_compact[_][i].append(sig_and_val[_][i][j])
+
+        for i in range(len(sig_names)):
+            wave["signal"][_][i + 1]["wave"] = ''.join(sig_and_val_compact[_][i])
+            wave["signal"][_][i + 1]["node"] = '.' * len(sig_and_val_compact[_][i])
+            if first_mismatch_line != -1:
+                wave["signal"][_][i + 1]["node"] = wave["signal"][_][i + 1]["node"][:first_mismatch_line] + (
+                    'a' if _ == 0 else 'b') + wave["signal"][_][i + 1]["node"][first_mismatch_line + 2:]
+
+    if first_mismatch_line != -1:
+        wave["edge"].append("a~b")
+
+    wave = json.dumps(wave)
+
+    svg = wavedrom.render(wave)
+    svg_string = svg.tostring()
+
+    return svg_string
 
 if __name__ == '__main__':
     config_dict = {
@@ -401,6 +609,7 @@ if __name__ == '__main__':
     err_cnt = 0
     ttl_cnt = 0
     ce_flag = False
+    er_flag = False
 
     teacher_result_list = []
     student_result_list = []
@@ -413,7 +622,6 @@ if __name__ == '__main__':
     # to prepare answer, testbench, student's answer & other files required by the yaml file.
     d, file_lists = prepare_files(config_dict)
     detail += d
-
     test_ans_srcs, main_test_tb_srcs, student_ans_srcs, other_necessary_files = file_lists
 
     # compile and run.
@@ -422,11 +630,12 @@ if __name__ == '__main__':
 
     svg_string = ""
 
-    if teacher_result[1] == 1 or student_result[1] == 1:
+    ce_flag = teacher_result[1] == 1 or student_result[1] == 1
+
+    if ce_flag:
         # something is wrong, error.
         err_cnt = 1
         ttl_cnt = 1
-        ce_flag = True
     else:
         for i in teacher_result[0]:
             if i[:7] == 'monitor':
@@ -443,95 +652,11 @@ if __name__ == '__main__':
                 first_mismatch_line = i
                 break
 
-        sig_names = []
-
-        # find all signal names we captured
-        sig_n_val = re.split('[,:]', teacher_result_list[0])
-        for i in sig_n_val:
-            r = re.split('=', i)
-            sig_names.append(r[0])
-
-        sig_and_val = [[[] for i in range(len(sig_names))], [[] for i in range(len(sig_names))]]
-        sig_and_val_compact = [[[] for i in range(len(sig_names))], [[] for i in range(len(sig_names))]]
-
-        start_line = max(0, first_mismatch_line - 200)
-        end_line = min(min(ttl_cnt, len(student_result_list)), first_mismatch_line + 200)
-
-        wave = {
-            "signal": [
-                [
-                    "ref",  # {"name":"", "wave":""}, {"name":"", "wave":""}, {"name":"", "wave":""}
-                ],
-                [
-                    "yours",  # {"name":"", "wave":""}, {"name":"", "wave":""}, {"name":"", "wave":""}
-                ]
-            ],
-            "edge": [
-                # edges
-            ],
-            "head": {
-                "text": 'Wave Diff',
-                "tick": 0,
-                "every": 2
-            },
-            "config": {
-                "skin": "narrow"
-            },
-        }
-
         test_results = [teacher_result_list, student_result_list]
 
-        for i in wave['signal']:
-            for j in range(len(sig_names)):
-                i.append({"name": f"{sig_names[j]}", "wave": "", "node": ""})
-
-        for _ in range(len(wave['signal'])):
-            # last_clk = 'x'
-            for i in range(start_line, end_line):
-                sig_n_val = re.split('[,:]', test_results[_][i])
-                # ok_flag = False
-                for j in range(len(sig_names)):
-                    r = re.split('=', sig_n_val[j])
-                    # if ok_flag or r[0] == "clk" and r[1] != last_clk:
-                    if r[0] == "clk":
-                        # last_clk = r[1]
-                        sig_and_val[_][j].append(
-                            'h' if r[1] == '1' else 'l'
-                        )
-                    else:
-                        sig_and_val[_][j].append(r[1])
-                        # ok_flag = True
-                    # else:
-                    #     break
-
-            # compress data
-            # 10100001 will convert to 1010...1
-            for i in range(len(sig_names)):
-                last_d = "x"
-                sig_and_val_compact[_][i].append(sig_and_val[_][i][0])
-                for j in range(1, len(sig_and_val[_][i])):
-                    if sig_and_val[_][i][j] == sig_and_val[_][i][j - 1]:
-                        sig_and_val_compact[_][i].append('.')
-                    else:
-                        sig_and_val_compact[_][i].append(sig_and_val[_][i][j])
-
-            for i in range(len(sig_names)):
-                wave["signal"][_][i + 1]["wave"] = ''.join(sig_and_val_compact[_][i])
-                wave["signal"][_][i + 1]["node"] = '.' * len(sig_and_val_compact[_][i])
-                if first_mismatch_line != -1:
-                    wave["signal"][_][i + 1]["node"] = wave["signal"][_][i + 1]["node"][:first_mismatch_line] + (
-                        'a' if _ == 0 else 'b') + wave["signal"][_][i + 1]["node"][first_mismatch_line + 2:]
-
-        if first_mismatch_line != -1:
-            wave["edge"].append("a~b")
-
-        wave = json.dumps(wave)
-
-        svg = wavedrom.render(wave)
-        svg_string = svg.tostring()
+        svg_string = generate_wave(test_results, first_mismatch_line)
 
         err_cnt = 0 if first_mismatch_line == -1 else 1
-
 
     r = difflib.SequenceMatcher(None, teacher_result_list, student_result_list).ratio()
 
@@ -555,26 +680,39 @@ if __name__ == '__main__':
         verdict = "WA"
         comment = "Wrong Answer"
 
-    detailx = ""
-    detailx += (
-        f'<div style="background-color: {colour}; padding: 0.5rem; display: inline-block; flex-direction: row; width: 100pt; height: 100pt;" class="button" onclick="collapse()" title="点击展示/隐藏本测试点波形">'
-        '<div style="float:left;" >'
-        '#1'
-        '</div>'
-        '<div class="v-align">'
-        f'{verdict}'
-        "</div></div>")
+    html_blk.stop_append()
+    div_num = html_blk.add_div("#1", {"style": {"float": "left"}})
+    div_verdict = html_blk.add_div(f"{verdict}", {"class": "v-align"})
+
+    detail += html_blk.add_div(f"{div_num} {div_verdict}", {
+        "style": {
+            "background-color": colour,
+            "padding": "0.5rem",
+            "display": "inline-block",
+            "flex-direction": "row",
+            "width": "10em",
+            "height": "10em",
+        },
+        "class": "button",
+        "onclick": "collapse()",
+        "title": "点击展示/隐藏本测试点波形"
+    })
 
     if len(svg_string) != 0:
         if err_cnt != 0:
-            detailx += ('<br>'
-                       f"<div style='width:2000px;overflow:auto;background:#EEEEEE;' id='svg_wave' >{svg_string}</div>")
+            vis = "visible"
         else:
-            detailx += ('<br>'
-                        f"<div style='width:2000px;overflow:auto;background:#EEEEEE;display:none' id='svg_wave' >{svg_string}</div>")
+            vis = "hidden"
 
-    detail = detailx + detail
-    detail += "<div style='width:2000px;' > </div>"
+        detail += html_blk.add_div(f"{svg_string}", {
+            "style": {
+                "width": "100%",
+                "overflow": "auto",
+                "background-color": "#EEEEEE",
+                "visibility": vis
+            },
+            "id": "svg_wave"
+        })
 
     if config_dict['no_frac_points']:
         mark = 100 if abs(r - 1) < 1e-8 else 0
