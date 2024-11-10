@@ -289,15 +289,25 @@ def generate_html_output(CG_result: dict):
            //      }
            //  }
             
-            function collapse(number_test)
+            function collapse(number_test, total_num)
             {
                 ele = document.getElementById("svg_wave_"+number_test);
                 if (ele.style.display != "none"){
                     ele.style.display = "none";
                 }else{
-                    ele.style.display = "block";
+                    for(let i=0;i <= total_num;i++){
+                        ele = document.getElementById("svg_wave_"+i);
+                        if (ele != null){
+                            ele.style.display = "none";
+                        }
+                    }
+                    ele = document.getElementById("svg_wave_"+number_test);
+                    if (ele.style.display != "none"){
+                        ele.style.display = "none";
+                    }else{
+                        ele.style.display = "block";
+                    }
                 }
-                // changeText();
             }"""
     )
     html_blk.add_style(
@@ -491,7 +501,7 @@ def compile_and_run(conf: dict, file_lists: list):
     return detail, teacher_result, student_result
 
 
-def generate_wave(test_results: list, first_mismatch_line: int, ttl_cnt):
+def generate_wave(test_results: list, first_mismatch_line: int, test_num: int, ttl_cnt: int):
     wave = {
         "signal": [
             [
@@ -505,7 +515,7 @@ def generate_wave(test_results: list, first_mismatch_line: int, ttl_cnt):
             # edges
         ],
         "head": {
-            "text": 'Wave Diff',
+            "text": f'Wave Diff',
             "tick": 0,
             "every": 2
         },
@@ -580,7 +590,7 @@ def generate_wave(test_results: list, first_mismatch_line: int, ttl_cnt):
     return svg_string
 
 
-def judge_one(config_dict: dict, number_test: int) -> dict:
+def judge_one(config_dict: dict, number_test: int, total_num: int):
     CG_result = {
         "detail": "",
         "verdict": "",
@@ -605,6 +615,9 @@ def judge_one(config_dict: dict, number_test: int) -> dict:
     teacher_result_list = []
     student_result_list = []
     svg_string = ""
+
+    blks = ""
+    svgs = ""
 
     # to prepare answer, testbench, student's answer & other files required by the yaml file.
     d, file_lists = prepare_files(config_dict)
@@ -638,7 +651,7 @@ def judge_one(config_dict: dict, number_test: int) -> dict:
 
         test_results = [teacher_result_list, student_result_list]
 
-        svg_string = generate_wave(test_results, first_mismatch_line, ttl_cnt)
+        svg_string = generate_wave(test_results, first_mismatch_line, number_test, ttl_cnt)
 
         err_cnt = 0 if first_mismatch_line == -1 else 1
 
@@ -664,43 +677,34 @@ def judge_one(config_dict: dict, number_test: int) -> dict:
         comment = "Wrong Answer"
 
     html_blk.stop_append()
+
     div_num = html_blk.add_div(f"#{number_test}", {"style": {"float": "left"}})
     div_verdict = html_blk.add_div(f"{verdict}", {"class": "v-align"})
 
-    detail += html_blk.add_div(f"{div_num} {div_verdict}", {
+    blks = html_blk.add_div(f"{div_num} {div_verdict}", {
         "style": {
             "background-color": colour,
             "padding": "0.5rem",
             "display": "inline-block",
-            "flex-direction": "row",
+            # "flex-direction": "row",
             "width": "10em",
             "height": "10em",
         },
         "class": "button",
-        "onclick": f"collapse({number_test})",
+        "onclick": f"collapse({number_test}, {total_num})",
         "title": "点击展示/隐藏本测试点波形"
     })
 
     if len(svg_string) != 0:
-        if err_cnt != 0:
-            vis = "block"
-        else:
-            vis = "none"
-
-        detail += html_blk.add_div(f"{svg_string}", {
+        svgs = html_blk.add_div(f"{svg_string}", {
             "style": {
                 "width": "100%",
                 "overflow": "auto",
                 "background-color": "#EEEEEE",
-                "display": vis
+                "display": "none"
             },
             "id": f"svg_wave_{number_test}"
         })
-    detail += html_blk.add_div(f" ", {
-        "style": {
-            "width": "100vh",
-        },
-    })
 
     if config_dict['no_frac_points']:
         mark = 100 if abs(r - 1) < 1e-8 else 0
@@ -717,7 +721,7 @@ def judge_one(config_dict: dict, number_test: int) -> dict:
 
     # CG_result = generate_html_output(CG_result)
 
-    return CG_result
+    return CG_result, blks, svgs
 
 
 if __name__ == '__main__':
@@ -743,15 +747,28 @@ if __name__ == '__main__':
     # if the yaml file doesn't exist, act as older OJs
 
     mark = 0
+    blks = []
+    svgs = []
+    app = html_blk.get_append()
+    html_blk.stop_append()
+    dx = html_blk.add_div(f" ", {
+        "style": {
+            "width": "100vw",
+        }})
+    html_blk.start_append()
 
     """ ==========================================================
                           JUDGE MAIN TEST POINT
         =========================================================="""
-    CG_result = judge_one(config_dict, 1)
+    CG_result, blk, svg = judge_one(config_dict, 0, config_dict['test_point_number'])
+    blks.append(blk)
+    svgs.append(svg)
 
     if CG_result['score'] == "100" or config_dict["test_point_number"] == 0 or len(
             config_dict["test_point_names"]) != 0 and len(config_dict["test_point_names"]) != config_dict[
-        "test_point_number"]:
+        "test_point_number"] or CG_result['verdict'] == "CE":
+
+        CG_result.update({"detail": f"{CG_result['detail']} {blks[0]} {svgs[0]} {dx}"})
         CG_result = generate_html_output(CG_result)
         output_final = json.dumps(CG_result)
         quitx(output_final)
@@ -775,7 +792,9 @@ if __name__ == '__main__':
         config_bk.update({"test_src_path": os.path.join(config_dict["test_src_path"], sub_test_name)})
         config_bk.update({"test_dst_path": os.path.join(config_dict["test_dst_path"], sub_test_name)})
 
-        CG_result_sub = judge_one(config_bk, i + 2)
+        CG_result_sub, blk, svg = judge_one(config_bk, i + 1, test_cnt )
+        blks.append(blk)
+        svgs.append(svg)
 
         CG_result.update({"comment": f"{CG_result['comment']} <br> {CG_result_sub['comment']}"})
         CG_result.update({"detail": f"{CG_result['detail']} <br> {CG_result_sub['detail']}"})
@@ -791,6 +810,12 @@ if __name__ == '__main__':
         CG_result.update({"verdict": f"PC"})
     else:
         CG_result.update({"verdict": f"AC"})
+
+    for i in range(len(blks)):
+        CG_result.update({"detail": f"{CG_result['detail']} {blks[i]}"})
+    for i in range(len(svgs)):
+        CG_result.update({"detail": f"{CG_result['detail']} {svgs[i]}"})
+    CG_result.update({"detail": f"{CG_result['detail']} {dx}"})
 
     CG_result = generate_html_output(CG_result)
     output_final = json.dumps(CG_result)
