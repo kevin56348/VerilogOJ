@@ -1,0 +1,99 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+    background-color: #f4f4f4;
+}
+
+h1 {
+    color: #333333;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+}
+
+table, th, td {
+    border: 1px solid #cccccc;
+    padding: 10px;
+    text-align: left;
+}
+
+th {
+    background-color: #f2f2f2;
+}
+
+tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+.verdict {
+    font-weight: bold;
+    font-size: 1.2em;
+}
+
+.comment {
+    font-style: italic;
+    color: #555555;
+}
+
+.v-align {
+    margin: 0 auto;
+    font: small-caps bold 1.8rem sans-serif;
+    width: 5em;
+    height: 5em;
+    text-align: center;
+    line-height: 5em;
+    border: 0 solid #ddd;
+}
+
+.button {
+    background-color: #4CAF50;
+    border: none;
+    color: white;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+.button:hover {
+    box-shadow: inset 0 -3em 3em rgba(0, 0, 0, 0.1),
+    0 0 0 0 rgb(255, 255, 255),
+    0.3em 0.3em 1em rgba(0, 0, 0, 0.3);
+}
+
+.button a {
+    display: none;
+}
+
+.button:hover a {
+    display: initial;
+}
+
+.error_head {
+    color: #E74C3B;
+    font-weight: bold;
+}
+
+.error_message {
+    color: #E67D22;
+    background-color: #F1F1F1;
+}
+
+.my_svg_container {
+    width: 100%;
+    overflow: auto;
+    background-color: #EEEEEE;
+    display: none;
+}
+
+.test_blk_container {
+    background-color: #114514;
+    padding: 0.5rem;
+    display: inline-block;
+    width: 10em;
+    height: 10em;
+}

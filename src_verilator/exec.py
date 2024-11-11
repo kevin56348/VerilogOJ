@@ -1,6 +1,24 @@
 #! /usr/bin/python3.8
 # -*- coding: utf-8 -*-
 
+"""
+A Verilog Judge based on Verilator.
+Copyright (C) 2024 Yuchen Wang
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+"""
+
 import json
 import os
 
@@ -8,60 +26,58 @@ import yaml
 import shlex
 import subprocess
 import difflib
-import sys
 import re
 import wavedrom
 
 FINAL_EXE_NAME = "___XXX_DO_NOT_CHANGE_THIS_EXECUTABLE"
 
+"""
+This is a typical test folder structure. with a config.yaml in testdata folder.
+To make it compatible with older OJs, if the config.yaml were missing, it will
+act as older OJs.
 
-# This is a typical test folder structure. with a config.yaml in testdata folder.
-# To make it compatible with older OJs, if the config.yaml were missing, it will
-# act as older OJs.
+Typical structure
+/
+|- coursegrader
+|             |- testdata
+|             |         |- config.yaml (optional)
+|             |         |
+|             |         |- subtest point 1 (optional)
+|             |         |                |- answer.v (whose name is arbitrary, but should end with .v)
+|             |         |                |- testbench_tb.v (whose name is arbitrary, but should end with _tb.v)
+|             |         |
+|             |         |- subtest point 2 (optional)
+|             |         |
+|             |         |- answer.v (whose name is arbitrary, but should end with .v)
+|             |         |- testbench_tb.v (whose name is arbitrary, but should end with _tb.v)
+|             |
+|             |- submit 
+|                     |- *.v
+|
+|- home
+|     |- test
+|     |     |- exec.py
+|     |     
+|     |
+|     |- ojfiles
+|     |       |- teacher
+|     |       |- student
 
-# Typical structure
-# /
-# |- coursegrader
-# |             |- testdata
-# |             |         |- config.yaml
-# |             |         |
-# |             |         |- sub test point ?
-# |             |         |- sub test point ?
-# |             |         |- sub test point ?
-# |             |         |- sub test point ?
-# |             |
-# |             |- submit 
-# |                     |- *.v
-# |
-# |- home
-# |     |- root
-# |     |     |- exec.py
-# |     |     |- ...
-# |     |
-# |     |- ojfiles
-# |     |       |- teacher
-# |     |       |- student
 
-# Structure used in older OJs
-# /
-# |- coursegrader
-# |             |- testdata
-# |             |         |- *.v
-# |             |         |- *_tb.v
-# |             |
-# |             |- submit
-# |                     |- *.v
-# |
-# |- home
-# |     |- root
-# |     |     |- exec.py
-# |     |     |- ...
-# |     |
-# |     |- ojfiles
-# |     |       |- teacher
-# |     |       |- student
+You can run this file by executing:
+    export PATH=/usr/local/bin/:/root/gcc/gcc141/bin:$PATH && export LD_LIBRARY_PATH=/root/gcc/gcc141/lib:/root/gcc/gcc141/lib64:/root/gcc/gcc141/libxec:$LD_LIBRARY_PATH && python3.8 /home/test/exec.py
+in a docker image/container.
+"""
+
 
 class HtmlBlock:
+    """
+    This class is a simple wrapper to produce html components.
+    Script, title, style, and table, p, div can be added in to this class.
+
+    Using stop_append() and start_append() to switch appending mode.
+    """
+
     def __init__(self):
         self.html = ""
         self.script = ""
@@ -71,22 +87,16 @@ class HtmlBlock:
         self.cnt = 0
         self.app = True
 
-        self.error_color_dic = {
-            "style": {
-                "color": "#E74C3B"
-            }
-        }
-        self.warn_color_dic = {
-            "style": {
-                "color": "#E67D22",
-                "background-color": "#F1F1F1"
-            }
-        }
-
     def stop_append(self):
+        """
+        stop appending content and return the content it generated.
+        """
         self.app = False
 
     def start_append(self):
+        """
+        start appending content and STOP return the content it generated.
+        """
         self.app = True
 
     def get_append(self):
@@ -96,6 +106,9 @@ class HtmlBlock:
         self.app = value
 
     def parse_dic(self, dic: dict):
+        """
+        A simple method whose function is converting a dict to the format can attach to a label.
+        """
         p = ""
         if dic is None:
             dic = {}
@@ -105,11 +118,17 @@ class HtmlBlock:
                 for dd in dic[d].keys():
                     p += f"{dd}:{dic[d][dd]};"
                 p += "' "
+            elif type(dic[d]) == list:
+                for dd in dic[d]:
+                    p += f'{d}="{dd}" '
             else:
                 p += f"{d}='{dic[d]}' "
         return p
 
     def generate_html(self, supp=None) -> str:
+        """
+        Wrapping and output whole html string.
+        """
         if supp is None:
             supp = []
         self.html = (f"<html>"
@@ -133,11 +152,19 @@ class HtmlBlock:
     def add_script(self, script: str):
         self.script += f"\n {script} \n"
 
+    def add_script_from_file(self, script: str):
+        with open(script, "r") as f:
+            self.script += f"\n {f.read()} \n"
+
     def add_title(self, title: str):
         self.title = f"\n {title} \n"
 
     def add_style(self, style: str):
         self.style += f"\n {style} \n"
+
+    def add_style_from_file(self, style: str):
+        with open(style, "r") as f:
+            self.style += f"\n {f.read()} \n"
 
     def add_table(self, table_head: list, table_body: list):
         head = ""
@@ -160,24 +187,19 @@ class HtmlBlock:
         else:
             return f"<table> {head} {body} </table>"
 
-    def add_p(self, p: str, dic=None):
-        p = f"<p {self.parse_dic(dic)}> {p} </p>"
-        if self.app:
-            self.contents.append(p)
-            self.cnt += 1
-        else:
-            return p
-
-    def add_multi_par(self, px: list, dic=None):
+    def add_p(self, px: list or str, dic=None):
         mp = ""
-        for i in px:
-            mp += f"{i}<br>"
-        p = f"<p {self.parse_dic(dic)}> {mp} </p>"
+        if type(px) == str:
+            mp = f"<p {self.parse_dic(dic)}> {px} </p>"
+        else:
+            for i in px:
+                mp += f"{i}<br>"
+            mp = f"<p {self.parse_dic(dic)}> {mp} </p>"
         if self.app:
-            self.contents.append(p)
+            self.contents.append(mp)
             self.cnt += 1
         else:
-            return p
+            return mp
 
     def add_h(self, h: str, lv: int):
         if self.app:
@@ -277,106 +299,12 @@ def generate_html_output(CG_result: dict):
 
     app = html_blk.get_append()
     html_blk.start_append()
-
     html_blk.add_title("测试结果")
-    html_blk.add_script(
-        """// function changeText()
-           //  {
-           //      if (document.getElementById("btn").value != "隐藏波形"){
-           //          document.getElementById("btn").value = "隐藏波形";
-           //      }else{
-           //          document.getElementById("btn").value = "显示波形";
-           //      }
-           //  }
-            
-            function collapse(number_test, total_num)
-            {
-                ele = document.getElementById("svg_wave_"+number_test);
-                if (ele.style.display != "none"){
-                    ele.style.display = "none";
-                }else{
-                    for(let i=0;i <= total_num;i++){
-                        ele = document.getElementById("svg_wave_"+i);
-                        if (ele != null){
-                            ele.style.display = "none";
-                        }
-                    }
-                    ele = document.getElementById("svg_wave_"+number_test);
-                    if (ele.style.display != "none"){
-                        ele.style.display = "none";
-                    }else{
-                        ele.style.display = "block";
-                    }
-                }
-            }"""
-    )
-    html_blk.add_style(
-        """body {
-                font-family: Arial, sans-serif;
-                margin: 20px;
-                background-color: #f4f4f4;
-            }
-            h1 {
-                color: #333;
-            }
-            table {
-                width: 100%;
-                border-collapse: collapse;
-                margin: 20px 0;
-            }
-            table, th, td {
-                border: 1px solid #ccc;
-                padding: 10px;
-                text-align: left;
-            }
-            th {
-                background-color: #f2f2f2;
-            }
-            tr:nth-child(even) {
-                background-color: #f9f9f9;
-            }
-            .verdict {
-                font-weight: bold;
-                font-size: 1.2em;
-            }
-            .comment {
-                font-style: italic;
-                color: #555;
-            }
-            .v-align {
-                margin: 0 auto;
-                font: small-caps bold 1.8rem sans-serif;
-                width: 5em;
-                height: 5em;
-                text-align: center;
-                line-height: 5em;
-                border: 0px solid #ddd;
-            }
-            .button {
-                background-color: #4CAF50;
-                border: none;
-                color: white;
-                text-align: center;
-                text-decoration: none;
-                display: inline-block;
-                font-size: 16px;
-                cursor: pointer;
-            }
-            .button:hover {
-                box-shadow:
-                inset 0 -3em 3em rgba(0, 0, 0, 0.1),
-                0 0 0 0px rgb(255, 255, 255),
-                0.3em 0.3em 1em rgba(0, 0, 0, 0.3);
-            }
-            .button a {
-                display: none;     
-            }
-            .button:hover a {
-                display: initial;     
-            }
-        """
-    )
+    html_blk.add_script_from_file("/home/test/exec.js")
+    # it's okay for a single page.
+    html_blk.add_style_from_file("/home/test/exec.css")
     html_blk.stop_append()
+
     h1 = html_blk.add_h("测试结果", 1)
     tab = html_blk.add_table(["项目", "结果"],
                              [
@@ -394,24 +322,40 @@ def generate_html_output(CG_result: dict):
 
 
 def load_param(conf: dict):
+    def check_name_match(str1: str, str2: str) -> bool:
+        # remove all "_"s, and convert all letters to lowercase
+        str2 = str2.lower()
+        str1 = str1.lower()
+        str2 = str2.replace('_', '')
+        str1 = str1.replace('_', '')
+        return str1 == str2
+
+    def check_name_in(str1: str, str2: list):
+        for s in str2:
+            if check_name_match(str1, s):
+                return s  # return the key.
+        return None
+
+
     if os.path.exists(conf["config_path"]):
         with open(conf["config_path"]) as f:
             conf_data = yaml.load(f, Loader=yaml.FullLoader)
+        configurables = [
+            "test_src_path",
+            "submit_src_path",
+            "test_dst_path",
+            "test_point_number",
+            "test_point_names",
+            "necessary_files",
+            "no_frac_points",
+            "display_wave"
+        ]
 
-        conf.update({"no_frac_points": False})
-        if 'TestSrcPath' in conf_data.keys():
-            conf.update({"test_src_path": conf_data['TestSrcPath']})
-        if 'SubmitSrcPath' in conf_data.keys():
-            conf.update({"submit_src_path": conf_data['SubmitSrcPath']})
-        if 'TestDstPath' in conf_data.keys():
-            conf.update({"test_dst_path": conf_data['TestDstPath']})
-        if 'TestPointNumber' in conf_data.keys():
-            conf.update({"test_point_number": conf_data['TestPointNumber']})
-        if 'TestPointNames' in conf_data.keys():
-            conf.update({"test_point_names": conf_data['TestPointNames']})
-        if 'NessaseryFiles' in conf_data.keys():
-            conf.update({"nessasery_files": conf_data['NessaseryFiles']})
-
+        for c in configurables:
+            s = check_name_in(c, conf_data.keys())
+            if s is not None:
+                # find a valid key
+                conf.update({c: conf_data[s]})
 
 def prepare_files(conf: dict):
     test_ans_srcs = []
@@ -421,8 +365,8 @@ def prepare_files(conf: dict):
 
     # To find all necessary files
     # These files will be copied to dst
-    if len(conf["nessasery_files"]) != 0:
-        for f in conf["nessasery_files"]:
+    if len(conf["necessary_files"]) != 0:
+        for f in conf["necessary_files"]:
             other_necessary_files.append(os.path.join(conf["test_src_path"], f))
 
     for d in os.listdir(conf["test_src_path"]):
@@ -446,13 +390,13 @@ def prepare_files(conf: dict):
     app = html_blk.get_append()
     html_blk.stop_append()
     if len(main_test_tb_srcs) == 0:
-        detail += html_blk.add_p("No testbench! Please contact your TA.", html_blk.error_color_dic)
+        detail += html_blk.add_p("No testbench! Please contact your TA.", {"class": "error_head"})
     if len(test_ans_srcs) == 0:
-        detail += html_blk.add_p("No answer! Please contact your TA.", html_blk.error_color_dic)
+        detail += html_blk.add_p("No answer! Please contact your TA.", {"class": "error_head"})
     if len(student_ans_srcs) == 0:
-        detail += html_blk.add_p("No answer submitted! Please check your work.", html_blk.error_color_dic)
-    if len(other_necessary_files) != len(conf["nessasery_files"]):
-        detail += html_blk.add_p("No necessary files! Please contact your TA.", html_blk.error_color_dic)
+        detail += html_blk.add_p("No answer submitted! Please check your work.", {"class": "error_head"})
+    if len(other_necessary_files) != len(conf["necessary_files"]):
+        detail += html_blk.add_p("No necessary files! Please contact your TA.", {"class": "error_head"})
     html_blk.set_append(app)
 
     return detail, [test_ans_srcs, main_test_tb_srcs, student_ans_srcs, other_necessary_files]
@@ -466,32 +410,31 @@ def compile_and_run(conf: dict, file_lists: list):
     # make main test
     comp_teacher = make(conf["test_dst_path"] + "teacher/", test_ans_srcs, main_test_tb_srcs, other_necessary_files)
     if comp_teacher[1] == 1:
-        detail += html_blk.add_p("Compiling failed in teacher's code. Please contact your TA.",
-                                 html_blk.error_color_dic)
+        detail += html_blk.add_p("Compiling failed in teacher's code. Please contact your TA.", {"class": "error_head"})
         detail += html_blk.add_p("Error messages are as follows:")
-        detail += html_blk.add_div(comp_teacher[0], html_blk.warn_color_dic)
+        detail += html_blk.add_div(comp_teacher[0], {"class": "error_message"})
 
     # make student ans
     comp_student = make(conf["test_dst_path"] + "student/", student_ans_srcs, main_test_tb_srcs, other_necessary_files)
     if comp_student[1] == 1:
-        detail += html_blk.add_p("Compiling failed in your code. Please check your work.", html_blk.error_color_dic)
+        detail += html_blk.add_p("Compiling failed in your code. Please check your work.", {"class": "error_head"})
         detail += html_blk.add_p("Error messages are as follows:")
-        detail += html_blk.add_div(comp_student[0], html_blk.warn_color_dic)
+        detail += html_blk.add_div(comp_student[0], {"class": "error_message"})
 
     # main testpoint ready
     teacher_result = execute(conf["test_dst_path"] + "teacher/")
     if teacher_result[1] == 1:
         detail += html_blk.add_p("Executing failed in teacher's code. Please contact your TA.",
-                                 html_blk.error_color_dic)
+                                 {"class": "error_head"})
         detail += html_blk.add_p("Error messages are as follows:")
-        detail += html_blk.add_div(teacher_result[0], html_blk.warn_color_dic)
+        detail += html_blk.add_div(teacher_result[0], {"class": "error_message"})
 
     student_result = execute(conf["test_dst_path"] + "student/")
     # result file will store in the same directory
     if student_result[1] == 1:
-        detail += html_blk.add_p("Executing failed in your code. Please check your work.", html_blk.error_color_dic)
+        detail += html_blk.add_p("Executing failed in your code. Please check your work.", {"class": "error_head"})
         detail += html_blk.add_p("Error messages are as follows:")
-        detail += html_blk.add_div(student_result[0], html_blk.warn_color_dic)
+        detail += html_blk.add_div(student_result[0], {"class": "error_message"})
 
     teacher_result[0] = teacher_result[0].split("<br>")
     student_result[0] = student_result[0].split("<br>")
@@ -600,18 +543,9 @@ def judge_one(config_dict: dict, number_test: int, total_num: int):
     }
 
     detail = ""
-    is_pass = False
-    mark = 0
-    verdict = "WA"
-    HTML = True
     comment = ""
     test_passed = 0
-    test_cnt = 1
-    last_err = ""
-    err_cnt = 0
     ttl_cnt = 0
-    ce_flag = False
-    er_flag = False
     teacher_result_list = []
     student_result_list = []
     svg_string = ""
@@ -648,10 +582,9 @@ def judge_one(config_dict: dict, number_test: int, total_num: int):
             if teacher_result_list[i] != student_result_list[i]:
                 first_mismatch_line = i
                 break
-
-        test_results = [teacher_result_list, student_result_list]
-
-        svg_string = generate_wave(test_results, first_mismatch_line, number_test, ttl_cnt)
+        if config_dict['display_wave']:
+            test_results = [teacher_result_list, student_result_list]
+            svg_string = generate_wave(test_results, first_mismatch_line, number_test, ttl_cnt)
 
         err_cnt = 0 if first_mismatch_line == -1 else 1
 
@@ -684,27 +617,18 @@ def judge_one(config_dict: dict, number_test: int, total_num: int):
     blks = html_blk.add_div(f"{div_num} {div_verdict}", {
         "style": {
             "background-color": colour,
-            "padding": "0.5rem",
-            "display": "inline-block",
-            # "flex-direction": "row",
-            "width": "10em",
-            "height": "10em",
         },
-        "class": "button",
+        "class": ["button", "test_blk_container"],
         "onclick": f"collapse({number_test}, {total_num})",
         "title": "点击展示/隐藏本测试点波形"
     })
 
-    if len(svg_string) != 0:
-        svgs = html_blk.add_div(f"{svg_string}", {
-            "style": {
-                "width": "100%",
-                "overflow": "auto",
-                "background-color": "#EEEEEE",
-                "display": "none"
-            },
-            "id": f"svg_wave_{number_test}"
-        })
+    if config_dict['display_wave']:
+        if len(svg_string) != 0:
+            svgs = html_blk.add_div(f"{svg_string}", {
+                "class": "my_svg_container",
+                "id": f"svg_wave_{number_test}"
+            })
 
     if config_dict['no_frac_points']:
         mark = 100 if abs(r - 1) < 1e-8 else 0
@@ -719,8 +643,6 @@ def judge_one(config_dict: dict, number_test: int, total_num: int):
     CG_result.update({"comment": f"{comment}"})
     CG_result.update({"detail": f"{detail}"})
 
-    # CG_result = generate_html_output(CG_result)
-
     return CG_result, blks, svgs
 
 
@@ -734,11 +656,12 @@ if __name__ == '__main__':
         "test_src_path": "/coursegrader/testdata/",
         "submit_src_path": "/coursegrader/submit/",
         "test_dst_path": "/home/ojfiles/",
-        "nessasery_files": [],
+        "necessary_files": [],
         # default: only one testpoint
         "test_point_number": 0,
         "test_point_names": [],
-        "no_frac_points": True
+        "no_frac_points": True,
+        "display_wave": True
     }
 
     # please ignore spelling mistakes
@@ -762,13 +685,16 @@ if __name__ == '__main__':
         =========================================================="""
     CG_result, blk, svg = judge_one(config_dict, 0, config_dict['test_point_number'])
     blks.append(blk)
-    svgs.append(svg)
+    if config_dict['display_wave']:
+        svgs.append(svg)
 
     if CG_result['score'] == "100" or config_dict["test_point_number"] == 0 or len(
             config_dict["test_point_names"]) != 0 and len(config_dict["test_point_names"]) != config_dict[
         "test_point_number"] or CG_result['verdict'] == "CE":
-
-        CG_result.update({"detail": f"{CG_result['detail']} {blks[0]} {svgs[0]} {dx}"})
+        if config_dict['display_wave']:
+            CG_result.update({"detail": f"{CG_result['detail']} {blks[0]} {svgs[0]} {dx}"})
+        else:
+            CG_result.update({"detail": f"{CG_result['detail']} {blks[0]}"})
         CG_result = generate_html_output(CG_result)
         output_final = json.dumps(CG_result)
         quitx(output_final)
@@ -792,9 +718,10 @@ if __name__ == '__main__':
         config_bk.update({"test_src_path": os.path.join(config_dict["test_src_path"], sub_test_name)})
         config_bk.update({"test_dst_path": os.path.join(config_dict["test_dst_path"], sub_test_name)})
 
-        CG_result_sub, blk, svg = judge_one(config_bk, i + 1, test_cnt )
+        CG_result_sub, blk, svg = judge_one(config_bk, i + 1, test_cnt)
         blks.append(blk)
-        svgs.append(svg)
+        if config_dict['display_wave']:
+            svgs.append(svg)
 
         CG_result.update({"comment": f"{CG_result['comment']} <br> {CG_result_sub['comment']}"})
         CG_result.update({"detail": f"{CG_result['detail']} <br> {CG_result_sub['detail']}"})
@@ -813,9 +740,10 @@ if __name__ == '__main__':
 
     for i in range(len(blks)):
         CG_result.update({"detail": f"{CG_result['detail']} {blks[i]}"})
-    for i in range(len(svgs)):
-        CG_result.update({"detail": f"{CG_result['detail']} {svgs[i]}"})
-    CG_result.update({"detail": f"{CG_result['detail']} {dx}"})
+    if config_dict['display_wave']:
+        for i in range(len(svgs)):
+            CG_result.update({"detail": f"{CG_result['detail']} {svgs[i]}"})
+        CG_result.update({"detail": f"{CG_result['detail']} {dx}"})
 
     CG_result = generate_html_output(CG_result)
     output_final = json.dumps(CG_result)
