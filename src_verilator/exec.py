@@ -226,7 +226,7 @@ class HtmlBlock:
 html_blk = HtmlBlock()
 
 
-def make(dst: str, ans: list, tb: list, onf: list) -> [str, int]:
+def make(dst: str, ans: list, tb: list, onf: list, conf=None) -> [str, int]:
     """
     This function aims to compile every *.v files into an executable.
     It will first mkdir a target directory recursively, if it doesn't exist.
@@ -246,17 +246,26 @@ def make(dst: str, ans: list, tb: list, onf: list) -> [str, int]:
         subprocess.check_output(args)  # ignore output
 
     # Here, you can't use > to redirect its output
-    cmd = (
-        f"verilator --cc --main --binary --Wno-lint --Wno-style --Wno-TIMESCALEMOD -CFLAGS -std=c++2a -O3 --x-assign fast"
-        f" --x-initial fast --noassert --exe --o {FINAL_EXE_NAME}"
-        f" --Mdir {dst}"
-        f" {' '.join(ans)} {' '.join(tb)}")
+    if conf is not None:
+        cmd = (
+            f"verilator --cc --main --binary --Wno-lint --Wno-style --Wno-TIMESCALEMOD -CFLAGS -std=c++2a -O3 --x-assign fast"
+            f" --x-initial fast --noassert --exe --o {FINAL_EXE_NAME}"
+            f" --Mdir {dst}"
+            f" -I{conf['test_src_path']}/"
+            f" -I{conf['test_dst_path']}/"
+            f" {' '.join(ans)} {' '.join(tb)}")
+    else:
+        cmd = (
+            f"verilator --cc --main --binary --Wno-lint --Wno-style --Wno-TIMESCALEMOD -CFLAGS -std=c++2a -O3 --x-assign fast"
+            f" --x-initial fast --noassert --exe --o {FINAL_EXE_NAME}"
+            f" --Mdir {dst}"
+            f" {' '.join(ans)} {' '.join(tb)}")
     args = shlex.split(cmd)
-    rv = ["", 0]
+    rv = [[], 0]
     try:
         subprocess.check_output(args, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
-        rv[0] = '<br>'.join(e.output.decode("utf-8", "ignore").splitlines())
+        rv[0] = e.output.decode("utf-8", "ignore").splitlines()
         rv[1] = 1
     return rv
 
@@ -272,15 +281,18 @@ def execute(dst: str) -> [str, int]:
             if FINAL_EXE_NAME in fx:  # if the `FINAL_EXE_NAME` is found, it means verilator successfully compiled *.v files.
                 executable.append(os.path.join(dst, fx))
 
-    rv = ""
     if len(executable) != 1:
         rv = f"Failed to compile!!!, with executables = {executable}"
         return [rv, 1]
 
     cmd = f"{executable[0]}"
     args = shlex.split(cmd)
-    px = subprocess.check_output(args, stderr=subprocess.STDOUT).decode("utf-8", "ignore").splitlines()
-    return ['<br>'.join(px), 0]
+    try:
+        px = subprocess.check_output(args, stderr=subprocess.STDOUT).decode("utf-8", "ignore").splitlines()
+    except subprocess.CalledProcessError as e:
+        px = e.output.decode("utf-8", "ignore").splitlines()
+        return [px, 1]
+    return [px, 0]
 
 
 def quitx(msg: str) -> None:
@@ -336,7 +348,6 @@ def load_param(conf: dict):
                 return s  # return the key.
         return None
 
-
     if os.path.exists(conf["config_path"]):
         with open(conf["config_path"]) as f:
             conf_data = yaml.load(f, Loader=yaml.FullLoader)
@@ -356,6 +367,7 @@ def load_param(conf: dict):
             if s is not None:
                 # find a valid key
                 conf.update({c: conf_data[s]})
+
 
 def prepare_files(conf: dict):
     test_ans_srcs = []
@@ -404,40 +416,41 @@ def prepare_files(conf: dict):
 
 def compile_and_run(conf: dict, file_lists: list):
     test_ans_srcs, main_test_tb_srcs, student_ans_srcs, other_necessary_files = file_lists
+    # print(f"test_ans_srcs, main_test_tb_srcs, student_ans_srcs, other_necessary_files： {file_lists}")
     detail = ""
     app = html_blk.get_append()
     html_blk.stop_append()
     # make main test
-    comp_teacher = make(conf["test_dst_path"] + "teacher/", test_ans_srcs, main_test_tb_srcs, other_necessary_files)
+    comp_teacher = make(conf["test_dst_path"] + "teacher/", test_ans_srcs, main_test_tb_srcs, other_necessary_files,
+                        conf)
     if comp_teacher[1] == 1:
-        detail += html_blk.add_p("Compiling failed in teacher's code. Please contact your TA.", {"class": "error_head"})
-        detail += html_blk.add_p("Error messages are as follows:")
+        detail += html_blk.add_p(["Compiling failed in teacher's code. Please contact your TA.", "Error messages are as follows:"], {"class": "error_head"})
         detail += html_blk.add_div(comp_teacher[0], {"class": "error_message"})
+    else:
+        detail += html_blk.add_div(comp_teacher[0], {"class": "pass_message"})
+
 
     # make student ans
-    comp_student = make(conf["test_dst_path"] + "student/", student_ans_srcs, main_test_tb_srcs, other_necessary_files)
+    comp_student = make(conf["test_dst_path"] + "student/", student_ans_srcs, main_test_tb_srcs, other_necessary_files,
+                        conf)
     if comp_student[1] == 1:
-        detail += html_blk.add_p("Compiling failed in your code. Please check your work.", {"class": "error_head"})
-        detail += html_blk.add_p("Error messages are as follows:")
+        detail += html_blk.add_p(["Compiling failed in your code. Please check your work.","Error messages are as follows:"], {"class": "error_head"})
         detail += html_blk.add_div(comp_student[0], {"class": "error_message"})
+    else:
+        detail += html_blk.add_div(comp_student[0], {"class": "pass_message"})
 
     # main testpoint ready
     teacher_result = execute(conf["test_dst_path"] + "teacher/")
     if teacher_result[1] == 1:
-        detail += html_blk.add_p("Executing failed in teacher's code. Please contact your TA.",
+        detail += html_blk.add_p(["Executing failed in teacher's code. Please contact your TA.","Error messages are as follows:"],
                                  {"class": "error_head"})
-        detail += html_blk.add_p("Error messages are as follows:")
         detail += html_blk.add_div(teacher_result[0], {"class": "error_message"})
 
     student_result = execute(conf["test_dst_path"] + "student/")
     # result file will store in the same directory
     if student_result[1] == 1:
-        detail += html_blk.add_p("Executing failed in your code. Please check your work.", {"class": "error_head"})
-        detail += html_blk.add_p("Error messages are as follows:")
+        detail += html_blk.add_p(["Executing failed in your code. Please check your work.", "Error messages are as follows:"], {"class": "error_head"})
         detail += html_blk.add_div(student_result[0], {"class": "error_message"})
-
-    teacher_result[0] = teacher_result[0].split("<br>")
-    student_result[0] = student_result[0].split("<br>")
 
     html_blk.set_append(app)
 
@@ -556,7 +569,6 @@ def judge_one(config_dict: dict, number_test: int, total_num: int):
     # to prepare answer, testbench, student's answer & other files required by the yaml file.
     d, file_lists = prepare_files(config_dict)
     detail += d
-    test_ans_srcs, main_test_tb_srcs, student_ans_srcs, other_necessary_files = file_lists
     # compile and run.
     d, teacher_result, student_result = compile_and_run(config_dict, file_lists)
     detail += d

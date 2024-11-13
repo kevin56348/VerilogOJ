@@ -83,6 +83,16 @@ tr:nth-child(even) {
     background-color: #F1F1F1;
 }
 
+.pass_head {
+    color: #4CAF50;
+    font-weight: bold;
+}
+
+.pass_message {
+    color: #17bc33;
+    background-color: #F1F1F1;
+}
+
 .my_svg_container {
     width: 100%;
     overflow: auto;
