@@ -20,16 +20,3 @@ function collapse(number_test, total_num) {
         }
     }
 }
-
-function changeText() {
-    let ele = document.getElementById("btn");
-    if (ele == null) {
-        return;
-    }
-    if (ele.value !== "隐藏波形") {
-        ele.value = "隐藏波形";
-    } else {
-        ele.value = "显示波形";
-    }
-
-}

@@ -1,23 +1,21 @@
 #! /usr/bin/python3.8
 # -*- coding: utf-8 -*-
 
-"""
-A Verilog Judge based on Verilator.
-Copyright (C) 2024 Yuchen Wang
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
-"""
+# A Verilog Judge based on Verilator.
+# Copyright (C) 2024 Yuchen Wang
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import json
 import os
@@ -461,10 +459,10 @@ def generate_wave(test_results: list, first_mismatch_line: int, test_num: int, t
     wave = {
         "signal": [
             [
-                "ref",  # {"name":"", "wave":""}, {"name":"", "wave":""}, {"name":"", "wave":""}
+                "ref",  # {"name":"", "wave":"", "node": "", "data": ""},
             ],
             [
-                "yours",  # {"name":"", "wave":""}, {"name":"", "wave":""}, {"name":"", "wave":""}
+                "yours",  #  {"name":"", "wave":"", "node": "", "data": ""},
             ]
         ],
         "edge": [
