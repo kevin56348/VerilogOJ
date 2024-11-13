@@ -490,13 +490,14 @@ def generate_wave(test_results: list, first_mismatch_line: int, test_num: int, t
 
     sig_and_val = [[[] for i in range(len(sig_names))], [[] for i in range(len(sig_names))]]
     sig_and_val_compact = [[[] for i in range(len(sig_names))], [[] for i in range(len(sig_names))]]
+    sig_and_val_data = [[[] for i in range(len(sig_names))], [[] for i in range(len(sig_names))]]
 
     start_line = max(0, first_mismatch_line - 200)
     end_line = min(min(ttl_cnt, len(test_results[1])), first_mismatch_line + 200)
 
     for i in wave['signal']:
         for j in range(len(sig_names)):
-            i.append({"name": f"{sig_names[j]}", "wave": "", "node": ""})
+            i.append({"name": f"{sig_names[j]}", "wave": "", "node": "", "data": ""})
 
     for _ in range(len(wave['signal'])):
         # last_clk = 'x'
@@ -519,17 +520,29 @@ def generate_wave(test_results: list, first_mismatch_line: int, test_num: int, t
 
         # compress data
         # 10100001 will convert to 1010...1
+        # 10, 10, 10, 00, 01 will convert to 2..22, data = [10, 00, 01]
         for i in range(len(sig_names)):
-            last_d = "x"
-            sig_and_val_compact[_][i].append(sig_and_val[_][i][0])
-            for j in range(1, len(sig_and_val[_][i])):
-                if sig_and_val[_][i][j] == sig_and_val[_][i][j - 1]:
-                    sig_and_val_compact[_][i].append('.')
-                else:
-                    sig_and_val_compact[_][i].append(sig_and_val[_][i][j])
+            if len(sig_and_val[_][i][0])==1:
+                sig_and_val_compact[_][i].append(sig_and_val[_][i][0])
+                for j in range(1, len(sig_and_val[_][i])):
+                    if sig_and_val[_][i][j] == sig_and_val[_][i][j - 1]:
+                        sig_and_val_compact[_][i].append('.')
+                    else:
+                        sig_and_val_compact[_][i].append(sig_and_val[_][i][j])
+            else:
+                sig_and_val_compact[_][i].append('2')
+                sig_and_val_data[_][i].append(sig_and_val[_][i][0])
+                for j in range(1, len(sig_and_val[_][i])):
+                    if sig_and_val[_][i][j] == sig_and_val[_][i][j - 1]:
+                        sig_and_val_compact[_][i].append('.')
+                    else:
+                        sig_and_val_compact[_][i].append("2")
+                        sig_and_val_data[_][i].append(sig_and_val[_][i][j])
+
 
         for i in range(len(sig_names)):
             wave["signal"][_][i + 1]["wave"] = ''.join(sig_and_val_compact[_][i])
+            wave["signal"][_][i + 1]["data"] = sig_and_val_data[_][i]
             wave["signal"][_][i + 1]["node"] = '.' * len(sig_and_val_compact[_][i])
             if first_mismatch_line != -1:
                 wave["signal"][_][i + 1]["node"] = wave["signal"][_][i + 1]["node"][:first_mismatch_line] + (
