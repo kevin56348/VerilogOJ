@@ -38,14 +38,28 @@ tr:nth-child(even) {
     color: #555555;
 }
 
+.test_blk_container {
+    background-color: #114514;
+    padding: 8px;
+    display: inline-block;
+    width: 160px;
+    height: 160px;
+    position: relative;
+    z-index: 1;
+    color: white;
+}
 .v-align {
-    margin: 0 auto;
+    margin: 0;
     font: small-caps bold 1.8rem sans-serif;
-    width: 5em;
-    height: 5em;
+    width: 160px;
     text-align: center;
-    line-height: 5em;
+    line-height: 160px;
     border: 0 solid #ddd;
+    position: absolute;
+    z-index: 2;
+    top: 0;
+    left: 0;
+    color: white;
 }
 
 .button {
@@ -98,12 +112,4 @@ tr:nth-child(even) {
     overflow: auto;
     background-color: #EEEEEE;
     display: none;
-}
-
-.test_blk_container {
-    background-color: #114514;
-    padding: 0.5rem;
-    display: inline-block;
-    width: 10em;
-    height: 10em;
 }

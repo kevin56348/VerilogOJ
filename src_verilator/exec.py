@@ -117,8 +117,10 @@ class HtmlBlock:
                     p += f"{dd}:{dic[d][dd]};"
                 p += "' "
             elif type(dic[d]) == list:
+                p += f'{d}="'
                 for dd in dic[d]:
-                    p += f'{d}="{dd}" '
+                    p += f'{dd} '
+                p += '"'
             else:
                 p += f"{d}='{dic[d]}' "
         return p
@@ -489,7 +491,7 @@ def generate_wave(test_results: list, first_mismatch_line: int, test_num: int, t
     sig_and_val = [[[] for i in range(len(sig_names))], [[] for i in range(len(sig_names))]]
     sig_and_val_compact = [[[] for i in range(len(sig_names))], [[] for i in range(len(sig_names))]]
     sig_and_val_data = [[[] for i in range(len(sig_names))], [[] for i in range(len(sig_names))]]
-
+    # TODO: CONFIGURABLE
     start_line = max(0, first_mismatch_line - 200)
     end_line = min(min(ttl_cnt, len(test_results[1])), first_mismatch_line + 200)
 
@@ -623,6 +625,7 @@ def judge_one(config_dict: dict, number_test: int, total_num: int):
         verdict = "AC"
         r = 1
         test_passed += 1
+    #     TODO: CONFIGURABLE
     elif not config_dict['no_frac_points'] and r >= 0.60:
         colour = "#E67D22"
         verdict = "PC"
