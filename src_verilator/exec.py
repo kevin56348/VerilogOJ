@@ -476,7 +476,7 @@ def generate_wave(test_results: list, first_mismatch_line: int, test_num: int, t
             "every": 2
         },
         "config": {
-            "skin": "narrow"
+          "skin": "narrow"
         },
     }
 
@@ -521,8 +521,16 @@ def generate_wave(test_results: list, first_mismatch_line: int, test_num: int, t
         # compress data
         # 10100001 will convert to 1010...1
         # 10, 10, 10, 00, 01 will convert to 2..22, data = [10, 00, 01]
+        is_binary = []
         for i in range(len(sig_names)):
-            if len(sig_and_val[_][i][0])==1:
+            is_binary.append(True)
+            for j in sig_and_val[_][i]: 
+                if len(j) != 1 or len(j)==1 and (j!='1' and j!='0' and j!='l' and j!='h'):
+                    is_binary[-1]= False
+                    break
+
+        for i in range(len(sig_names)):
+            if is_binary[i]:
                 sig_and_val_compact[_][i].append(sig_and_val[_][i][0])
                 for j in range(1, len(sig_and_val[_][i])):
                     if sig_and_val[_][i][j] == sig_and_val[_][i][j - 1]:
