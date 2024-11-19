@@ -190,6 +190,8 @@ NecessaryFiles: # 其他必要文件。该路径为相对每一个测试点的�
 </html>
 ```
 
+![Compile Error](./readme/fig1.png)
+
 ### 答案错误
 
 若测试出现答案错误，`verdict` 显示 `WA`。此时错误信息应为空。
@@ -204,6 +206,7 @@ NecessaryFiles: # 其他必要文件。该路径为相对每一个测试点的�
 </body>
 </html>
 ```
+![Compile Error](./readme/fig2.png)
 
 [//]: # (TODO CONFIGURABLE)
 波形图会自动展开。单击 `WA` 可收起波形图。目前波形图只会显示错误点前后各200次的数据，需要在源码中配置该值。
@@ -223,6 +226,7 @@ NecessaryFiles: # 其他必要文件。该路径为相对每一个测试点的�
 </body>
 </html>
 ```
+![Compile Error](./readme/fig3.png)
 
 ### 答案正确
 
@@ -238,6 +242,7 @@ NecessaryFiles: # 其他必要文件。该路径为相对每一个测试点的�
 </body>
 </html>
 ```
+![Compile Error](./readme/fig4.png)
 
 ### 状态一览表
 
