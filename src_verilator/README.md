@@ -134,9 +134,86 @@ NecessaryFiles: # 其他必要文件。该路径为相对每一个测试点的�
 
 其他必要的，非 `.v` 文件。
 
-## 测试原理
+## 测试原理与流程
 
-该测评机捕捉 `display` 等语句输出的信息，句首必须为 `monitor` 才可以被捕获到。
+该测评机捕捉 `display` 等语句输出的信息，且句首必须为 `monitor`。测评机将会对标准答案的输出和提交答案的输出进行对比，给出一个相似度，即分数，从而进行评测。详细的评测流程如下：
+
+### 加载配置文件
+
+加载配置文件会使用 `load_param` 函数加载 `config_dict` 中 `config_path` 键对应文件的内容： `/coursegrader/testdata/config.yaml`，即配置文件。该配置文件路径固定，只能通过修改测试脚本的方式进行修改。虽然 YAML 文件是大小写敏感的，但在加载过程中会将所有键值转为小写，并去除所有下划线 `_`。因此在配置文件中，`TestSrcPath`、`testsrcpath`、`test_src_path`、`Test_Src_Path` 甚至是 `T_E_st_sr___c_path` 是等价的，你可以随意进行选用。
+
+目前，有以下键值可用：
+
+- `test_src_path`：测试源文件所在的路径，包括 testbench 与标准答案。特别的，`config.yaml` 默认位于此文件夹下。
+- `submit_src_path`：被测试文件所在的路径，包括被测试答案。
+- `test_dst_path`：测试结果生成路径，必须保证具有该路径的读、写与执行权限。所有中间结果都会在该路径下生成。
+- `test_point_number`：子测试点数量，默认为 0，代表只有一个主测试点。1 代表有一个主测试点和 1 个子测试点。
+- `test_point_names`：测试点名称，该名称应和 `test_src_path` 下子测试点文件夹的名称一一对应。如果留空，则缺省值为 `point`$测试点编号$。若 `test_point_number` 为 3，即有 3 个子测试点，那么其值为：`point0`、`point1`和`point2`。
+- `necessary_files`：其他必要文件。如果你需要的一些文件不是 `_tb.v` 文件，你可以通过这种方式将其加入到你的测试中，例如 `.h` 文件。不在此列且不以 `_tb.v` 结尾，且以 `.v` 结尾的文件将被视为无效文件。无法被该测评机所处理。
+- `no_frac_points`：若此选项为 `TRUE`， 则测评机只会给出 0 分或 100 分；否则会给出 0-100 不等的分数。
+- `display_wave`：是否显示波形。若此选项为 `TRUE`，将可以展示错误点附近的波形。
+
+### 测评主测试点
+
+接下来，测评机将会对主测试点进行测评。
+
+首先是测试文件的准备。该步骤首先会获取所有 `test_src_path` 下的其他必要文件 `necessary_files`，之后获取 `test_src_path` 下所有以 `_tb.v` 结尾的文件、以 `.v` 结尾的文件，以及 `submit_src_path` 下以 `.v` 结尾的文件，并分别存入 `other_necessary_files`、`main_test_tb_srcs`、`test_ans_srcs` 与 `student_ans_srcs` 四个数组中。
+
+在该阶段，测评机可能抛出以下错误：
+
+1.`No testbench! Please contact your TA.`
+2.`No answer! Please contact your TA.`
+3.`No answer submitted! Please check your work.`
+4.`No necessary files! Please contact your TA.`
+
+其中第 1、2、4 项代表测试用例设计错误，需要联系助教修正；而第 3 项代表学生没有提交预期的答案（或是提交的答案中没有 `.v` 文件）。
+
+下面，测评机将会对标准答案和被测答案进行编译运行。
+
+首先，测评机将会使用 Verilator 对标准答案进行编译。编译选项如下：
+
+```shell
+--cc --main --binary --Wno-lint --Wno-style 
+--Wno-TIMESCALEMOD -CFLAGS -std=c++2a -O3 --x-assign fast
+--x-initial fast --noassert --exe 
+--o {FINAL_EXE_NAME}
+--Mdir {dst}
+```
+
+其中 `dst` 为 `test_dst_path/teacher/`，`FINAL_EXE_NAME` 是一个不太可能重复的名称 `___XXX_DO_NOT_CHANGE_THIS_EXECUTABLE`。
+
+在此阶段，将会产生如下错误：
+
+- `Compiling failed in teacher's code. Please contact your TA. Error messages are as follows:`
+
+这代表标准答案无法通过编译。
+
+接下来将会对被测代码进行编译，步骤同上，`dst` 换为 `test_dst_path/student/`。
+
+在此阶段，将会产生如下错误：
+
+- `Compiling failed in your code. Please check your work. Error messages are as follows:`
+
+这代表被测答案无法通过编译。
+
+后面将会分别执行标准答案和被测答案，得到仿真输出。
+
+在此阶段，将会产生以下错误：
+
+- `Executing failed in teacher's code. Please contact your TA. Error messages are as follows:`
+- `Executing failed in your code. Please check your work. Error messages are as follows:`
+
+分别代表标准答案和被测答案执行失败。当编译失败时，一定会出现执行失败。否则，单纯的执行失败应较为少见。
+
+下面，将会在标准答案和被测答案中寻找以 `monitor` 开始的行，并将其标记为需要对比的行。接下来将会对比这些行，直到有不同为止。将第一次不同的行记作 `first_mismatch_line`。 最后，将会通过 wavedrom 生成波形，产生 svg 文件，从而返回前端。
+
+最后，将会依据测评结果产生输出信息。至此，一个测试点测评完毕。
+
+### 生成波形
+
+TODO
+
+[//]: # (TODO)
 
 ## 测试结果
 
