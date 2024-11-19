@@ -157,6 +157,7 @@ NecessaryFiles: # 其他必要文件。该路径为相对每一个测试点的�
 
 若测试出现编译错误、执行错误等情况，统一归类至编译错误选项，`verdict` 显示 `CE`。错误信息头部将会使用 `error_head` 类简单描述，详细错误信息使用 `error_message` 类输出，紧随错误信息头部。一个输出的示例如下所示：
 
+```html
 <html lang="en">
 <body>
     <p style="color: #E74C3B;font-weight: bold;"> Compiling failed in your code. Please check your work.","Error messages are as follows: </p>
@@ -187,11 +188,13 @@ NecessaryFiles: # 其他必要文件。该路径为相对每一个测试点的�
     </div>
 </body>
 </html>
+```
 
 ### 答案错误
 
 若测试出现答案错误，`verdict` 显示 `WA`。此时错误信息应为空。
 
+```html
 <html lang="en">
 <body>
     <div style="padding: 8px;display: inline-block;width: 160px;height: 160px;position: relative;z-index: 1;background-color: #E74C3B;" >
@@ -200,6 +203,7 @@ NecessaryFiles: # 其他必要文件。该路径为相对每一个测试点的�
     </div>
 </body>
 </html>
+```
 
 [//]: # (TODO CONFIGURABLE)
 波形图会自动展开。单击 `WA` 可收起波形图。目前波形图只会显示错误点前后各200次的数据，需要在源码中配置该值。
@@ -209,6 +213,7 @@ NecessaryFiles: # 其他必要文件。该路径为相对每一个测试点的�
 [//]: # (TODO CONFIGURABLE)
 若测试部分正确且达到某一分数阈值，`verdict` 显示 `PC`。此时错误信息应为空，分数应为 $60 \sim 100$ 之间的数值。波形图会自动展开。单击 `PC` 可收起波形图。
 
+```html
 <html lang="en">
 <body>
     <div style="padding: 8px;display: inline-block;width: 160px;height: 160px;position: relative;z-index: 1;background-color: #E67D22;" >
@@ -217,19 +222,22 @@ NecessaryFiles: # 其他必要文件。该路径为相对每一个测试点的�
     </div>
 </body>
 </html>
+```
 
 ### 答案正确
 
 若测试部分正确，`verdict` 显示 `AC`，表示答案被接受。此时错误信息应为空。波形自动收起，但同样可以通过单击评分块展开波形。
 
+```html
 <html lang="en">
 <body>
-    <di style="padding: 8px;display: inline-block;width: 160px;height: 160px;position: relative;z-index: 1;background-color: #5EB95E;" >
+    <div style="padding: 8px;display: inline-block;width: 160px;height: 160px;position: relative;z-index: 1;background-color: #5EB95E;" >
         <div style="float: left;color:white"> #1 </div>
         <div style="margin: 0;font: small-caps bold 1.8rem sans-serif;width: 160px;text-align: center;line-height: 160px;border: 0 solid #ddd;position: absolute;z-index: 2;top: 0;left: 0;color:white;"> AC </div>
-    </di>
+    </div>
 </body>
 </html>
+```
 
 ### 状态一览表
 
