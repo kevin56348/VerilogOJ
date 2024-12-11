@@ -359,7 +359,10 @@ def load_param(conf: dict):
             "test_point_names",
             "necessary_files",
             "no_frac_points",
-            "display_wave"
+            "display_wave",
+            "subtest_merge_method",
+            "comments",
+            "total_weight"
         ]
 
         for c in configurables:
@@ -424,17 +427,20 @@ def compile_and_run(conf: dict, file_lists: list):
     comp_teacher = make(conf["test_dst_path"] + "teacher/", test_ans_srcs, main_test_tb_srcs, other_necessary_files,
                         conf)
     if comp_teacher[1] == 1:
-        detail += html_blk.add_p(["Compiling failed in teacher's code. Please contact your TA.", "Error messages are as follows:"], {"class": "error_head"})
+        detail += html_blk.add_p(
+                ["Compiling failed in teacher's code. Please contact your TA.", "Error messages are as follows:"],
+                {"class": "error_head"})
         detail += html_blk.add_div(comp_teacher[0], {"class": "error_message"})
     else:
         detail += html_blk.add_div(comp_teacher[0], {"class": "pass_message"})
-
 
     # make student ans
     comp_student = make(conf["test_dst_path"] + "student/", student_ans_srcs, main_test_tb_srcs, other_necessary_files,
                         conf)
     if comp_student[1] == 1:
-        detail += html_blk.add_p(["Compiling failed in your code. Please check your work.","Error messages are as follows:"], {"class": "error_head"})
+        detail += html_blk.add_p(
+                ["Compiling failed in your code. Please check your work.", "Error messages are as follows:"],
+                {"class": "error_head"})
         detail += html_blk.add_div(comp_student[0], {"class": "error_message"})
     else:
         detail += html_blk.add_div(comp_student[0], {"class": "pass_message"})
@@ -442,14 +448,17 @@ def compile_and_run(conf: dict, file_lists: list):
     # main testpoint ready
     teacher_result = execute(conf["test_dst_path"] + "teacher/")
     if teacher_result[1] == 1:
-        detail += html_blk.add_p(["Executing failed in teacher's code. Please contact your TA.","Error messages are as follows:"],
-                                 {"class": "error_head"})
+        detail += html_blk.add_p(
+                ["Executing failed in teacher's code. Please contact your TA.", "Error messages are as follows:"],
+                {"class": "error_head"})
         detail += html_blk.add_div(teacher_result[0], {"class": "error_message"})
 
     student_result = execute(conf["test_dst_path"] + "student/")
     # result file will store in the same directory
     if student_result[1] == 1:
-        detail += html_blk.add_p(["Executing failed in your code. Please check your work.", "Error messages are as follows:"], {"class": "error_head"})
+        detail += html_blk.add_p(
+                ["Executing failed in your code. Please check your work.", "Error messages are as follows:"],
+                {"class": "error_head"})
         detail += html_blk.add_div(student_result[0], {"class": "error_message"})
 
     html_blk.set_append(app)
@@ -464,19 +473,19 @@ def generate_wave(test_results: list, first_mismatch_line: int, test_num: int, t
                 "ref",  # {"name":"", "wave":"", "node": "", "data": ""},
             ],
             [
-                "yours",  #  {"name":"", "wave":"", "node": "", "data": ""},
+                "yours",  # {"name":"", "wave":"", "node": "", "data": ""},
             ]
         ],
-        "edge": [
+        "edge"  : [
             # edges
         ],
-        "head": {
-            "text": f'Wave Diff {test_num}',
-            "tick": 0,
+        "head"  : {
+            "text" : f'Wave Diff {test_num}',
+            "tick" : 0,
             "every": 2
         },
         "config": {
-          "skin": "narrow"
+            # "skin": "narrow"
         },
     }
 
@@ -506,17 +515,17 @@ def generate_wave(test_results: list, first_mismatch_line: int, test_num: int, t
             # ok_flag = False
             for j in range(len(sig_names)):
                 r = re.split('=', sig_n_val[j])
-                # if ok_flag or r[0] == "clk" and r[1] != last_clk:
-                if r[0] == "clk":
-                    # last_clk = r[1]
-                    sig_and_val[_][j].append(
-                        'h' if r[1] == '1' else 'l'
-                    )
+                if len(r) == 2:
+                    if r[0] == "clk":
+                        # last_clk = r[1]
+                        sig_and_val[_][j].append(
+                                'h' if r[1] == '1' else 'l'
+                        )
+                    else:
+                        sig_and_val[_][j].append(r[1])
                 else:
-                    sig_and_val[_][j].append(r[1])
-                    # ok_flag = True
-                # else:
-                #     break
+                    no_wave = True
+                    break
 
         # compress data
         # 10100001 will convert to 1010...1
@@ -524,9 +533,9 @@ def generate_wave(test_results: list, first_mismatch_line: int, test_num: int, t
         is_binary = []
         for i in range(len(sig_names)):
             is_binary.append(True)
-            for j in sig_and_val[_][i]: 
-                if len(j) != 1 or len(j)==1 and (j!='1' and j!='0' and j!='l' and j!='h'):
-                    is_binary[-1]= False
+            for j in sig_and_val[_][i]:
+                if len(j) != 1 or len(j) == 1 and (j != '1' and j != '0' and j != 'l' and j != 'h'):
+                    is_binary[-1] = False
                     break
 
         for i in range(len(sig_names)):
@@ -547,7 +556,6 @@ def generate_wave(test_results: list, first_mismatch_line: int, test_num: int, t
                         sig_and_val_compact[_][i].append("2")
                         sig_and_val_data[_][i].append(sig_and_val[_][i][j])
 
-
         for i in range(len(sig_names)):
             wave["signal"][_][i + 1]["wave"] = ''.join(sig_and_val_compact[_][i])
             wave["signal"][_][i + 1]["data"] = sig_and_val_data[_][i]
@@ -555,7 +563,6 @@ def generate_wave(test_results: list, first_mismatch_line: int, test_num: int, t
             if first_mismatch_line != -1:
                 wave["signal"][_][i + 1]["node"] = wave["signal"][_][i + 1]["node"][:first_mismatch_line] + (
                     'a' if _ == 0 else 'b') + wave["signal"][_][i + 1]["node"][first_mismatch_line + 2:]
-
     if first_mismatch_line != -1:
         wave["edge"].append("a~b")
 
@@ -569,10 +576,10 @@ def generate_wave(test_results: list, first_mismatch_line: int, test_num: int, t
 
 def judge_one(config_dict: dict, number_test: int, total_num: int):
     CG_result = {
-        "detail": "",
+        "detail" : "",
         "verdict": "",
-        "HTML": "True",
-        "score": 0,
+        "HTML"   : "True",
+        "score"  : 0,
         "comment": ""
     }
 
@@ -621,7 +628,12 @@ def judge_one(config_dict: dict, number_test: int, total_num: int):
 
         err_cnt = 0 if first_mismatch_line == -1 else 1
 
-    r = difflib.SequenceMatcher(None, teacher_result_list, student_result_list).ratio()
+    if err_cnt == 0:
+        r = 1
+    elif ce_flag:
+        r = 0
+    else:
+        r = difflib.SequenceMatcher(None, teacher_result_list, student_result_list).ratio()
 
     if ce_flag:
         colour = "#9E3DD0"
@@ -649,19 +661,19 @@ def judge_one(config_dict: dict, number_test: int, total_num: int):
     div_verdict = html_blk.add_div(f"{verdict}", {"class": "v-align"})
 
     blks = html_blk.add_div(f"{div_num} {div_verdict}", {
-        "style": {
+        "style"  : {
             "background-color": colour,
         },
-        "class": ["button", "test_blk_container"],
+        "class"  : ["button", "test_blk_container"],
         "onclick": f"collapse({number_test}, {total_num})",
-        "title": "点击展示/隐藏本测试点波形"
+        "title"  : "点击展示/隐藏本测试点波形"
     })
 
     if config_dict['display_wave']:
         if len(svg_string) != 0:
             svgs = html_blk.add_div(f"{svg_string}", {
                 "class": "my_svg_container",
-                "id": f"svg_wave_{number_test}"
+                "id"   : f"svg_wave_{number_test}"
             })
 
     if config_dict['no_frac_points']:
@@ -686,16 +698,19 @@ if __name__ == '__main__':
         =========================================================="""
 
     config_dict = {
-        "config_path": "/coursegrader/testdata/config.yaml",
-        "test_src_path": "/coursegrader/testdata/",
-        "submit_src_path": "/coursegrader/submit/",
-        "test_dst_path": "/home/ojfiles/",
-        "necessary_files": [],
+        "config_path"         : "/coursegrader/testdata/config.yaml",
+        "test_src_path"       : "/coursegrader/testdata/",
+        "submit_src_path"     : "/coursegrader/submit/",
+        "test_dst_path"       : "/home/ojfiles/",
+        "necessary_files"     : [],
         # default: only one testpoint
-        "test_point_number": 0,
-        "test_point_names": [],
-        "no_frac_points": True,
-        "display_wave": True
+        "test_point_number"   : 0,
+        "test_point_names"    : None,
+        "no_frac_points"      : True,
+        "display_wave"        : True,
+        "subtest_merge_method": "sum",
+        "comments"            : [],
+        "total_weight"        : None
     }
 
     # please ignore spelling mistakes
@@ -722,13 +737,28 @@ if __name__ == '__main__':
     if config_dict['display_wave']:
         svgs.append(svg)
 
-    if CG_result['score'] == "100" or config_dict["test_point_number"] == 0 or len(
-            config_dict["test_point_names"]) != 0 and len(config_dict["test_point_names"]) != config_dict[
-        "test_point_number"] or CG_result['verdict'] == "CE":
+    if (CG_result['score'] == "100"
+            or config_dict["test_point_number"] == 0
+            or (config_dict["test_point_names"] is not None
+                and type(config_dict["test_point_names"]) == list
+                and len(config_dict["test_point_names"]) != 0
+                and len(config_dict["test_point_names"]) != config_dict["test_point_number"])
+            or (config_dict["test_point_names"] is not None
+                and type(config_dict["test_point_names"]) == dict
+                and len(config_dict["test_point_names"].keys()) != 0
+                and len(config_dict["test_point_names"].keys()) != config_dict["test_point_number"])
+            or CG_result['verdict'] == "CE"):
         if config_dict['display_wave']:
             CG_result.update({"detail": f"{CG_result['detail']} {blks[0]} {svgs[0]} {dx}"})
         else:
-            CG_result.update({"detail": f"{CG_result['detail']} {blks[0]}"})
+            if CG_result['verdict'] != 'CE':
+                CG_result.update({"detail": f"Submitted"})
+                CG_result.update({"verdict": f"Submitted"})
+                CG_result.update({"score": f"Submitted"})
+                CG_result.update({"comment": f"Submitted"})
+            else:
+                CG_result.update({"verdict": f"Compile Error"})
+                CG_result.update({"score": f"0"})
         CG_result = generate_html_output(CG_result)
         output_final = json.dumps(CG_result)
         quitx(output_final)
@@ -738,16 +768,20 @@ if __name__ == '__main__':
         =========================================================="""
 
     test_cnt = config_dict["test_point_number"]
+    subtest_marks = []
+    subtest_full_marks = []
 
     for i in range(test_cnt):
         config_bk = config_dict.copy()
 
-        sub_test_tb_src = []
         if len(config_bk["test_point_names"]) == 0:
             sub_test_name = f"point{i}"
-        else:
+        elif type(config_bk["test_point_names"]) == list:
             sub_test_name = config_bk["test_point_names"][i]
-
+            subtest_full_marks.append(1)
+        else:  # dict
+            sub_test_name = list(config_bk["test_point_names"].keys())[i]
+            subtest_full_marks.append(config_bk["test_point_names"][sub_test_name])
         # print(f"entering {sub_test_name}")
         config_bk.update({"test_src_path": os.path.join(config_dict["test_src_path"], sub_test_name)})
         config_bk.update({"test_dst_path": os.path.join(config_dict["test_dst_path"], sub_test_name)})
@@ -757,17 +791,33 @@ if __name__ == '__main__':
         if config_dict['display_wave']:
             svgs.append(svg)
 
-        CG_result.update({"comment": f"{CG_result['comment']} <br> {CG_result_sub['comment']}"})
+        custom_comment = f"{config_bk['comments'][i]} is {'' if int(CG_result_sub['score']) == 100 else 'not'} pass. <br>"
+
+        CG_result.update({
+            "comment": f"{CG_result['comment']} <br> subtest_{i}: {CG_result_sub['comment']} <br> {custom_comment}"})
         CG_result.update({"detail": f"{CG_result['detail']} <br> {CG_result_sub['detail']}"})
 
-        if CG_result_sub['score'] == "100":
-            mark += 1
+        subtest_marks.append(CG_result_sub['score'])
+
+    mark = 0
+    if config_dict['subtest_merge_method'] == "sum":
+        for s, m in zip(subtest_marks, subtest_full_marks):
+            mark += float(s) * m
+        if config_dict['total_weight'] is None:
+            mark /= sum(subtest_full_marks)
+        else:
+            mark /= config_dict['total_weight']
+    else:
+        for s, m in zip(subtest_marks, subtest_full_marks):
+            mark = max(float(s) * m, mark)
+        mark /= max(subtest_full_marks)
+    mark = round(mark)
 
     CG_result.update({"score": f"{mark}"})
 
-    if mark == 0:
+    if mark != 100 and config_dict['no_frac_points']:
         CG_result.update({"verdict": f"WA"})
-    elif mark != test_cnt and not config_dict['no_frac_points']:
+    elif mark != 100 and not config_dict['no_frac_points']:
         CG_result.update({"verdict": f"PC"})
     else:
         CG_result.update({"verdict": f"AC"})
