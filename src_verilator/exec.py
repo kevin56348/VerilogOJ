@@ -247,31 +247,33 @@ def make(dst: str, ans: list, tb: list, onf: list, conf=None) -> [str, int]:
 
     # Here, you can't use > to redirect its output
     if conf is not None:
-        # cmd = (
-        #     f"verilator --cc --main --binary --Wno-lint --Wno-style --Wno-TIMESCALEMOD --Wno-COMBDLY --Wno-UNOPTFLAT -CFLAGS -std=c++2a"
-        #     f" --noassert --exe --o {FINAL_EXE_NAME}"
-        #     f" --Mdir {dst}"
-        #     f" -I{conf['test_src_path']}/"
-        #     f" -I{conf['test_dst_path']}/"
-        #     f" {' '.join(ans)} {' '.join(tb)}")
-        """if you ask what is happened here, I'll tell tell you:
-                verilator is a gooooood software..."""
-        cmd = f"iverilog -I {conf['test_src_path']} -I {conf['test_dst_path']} -o {dst}/{FINAL_EXE_NAME} {' '.join(ans)} {' '.join(tb)}"
-    else:
         if conf['simulator']=='verilator':
             cmd = (
-                f"verilator --cc --main --binary --Wno-lint --Wno-style --Wno-TIMESCALEMOD --Wno-COMBDLY --Wno-UNOPTFLAT -CFLAGS -std=c++2a"
+                f"verilator --cc --main --binary --Wno-lint --Wno-style --Wno-TIMESCALEMOD -CFLAGS -std=c++2a"
                 f" --noassert --exe --o {FINAL_EXE_NAME}"
                 f" --Mdir {dst}"
+                f" -I{conf['test_src_path']}/"
+                f" -I{conf['test_dst_path']}/"
                 f" {' '.join(ans)} {' '.join(tb)}")
         else:
             """if you ask what is happened here, I'll tell tell you:
                     verilator is a gooooood software..."""
-            cmd = f"iverilog -o {dst}/{FINAL_EXE_NAME} {' '.join(ans)} {' '.join(tb)}"
+            cmd = f"iverilog -I {conf['test_src_path']} -I {conf['test_dst_path']} -o {dst if dst[-1]!='/' else dst[:-1]}/{FINAL_EXE_NAME} {' '.join(ans)} {' '.join(tb)}"
+    else:
+        cmd = (
+            f"verilator --cc --main --binary --Wno-lint --Wno-style --Wno-TIMESCALEMOD -CFLAGS -std=c++2a"
+            f" --noassert --exe --o {FINAL_EXE_NAME}"
+            f" --Mdir {dst}"
+            f" {' '.join(ans)} {' '.join(tb)}")
+        """if you ask what is happened here, I'll tell tell you:
+                verilator is a gooooood software..."""
+        cmd = f"iverilog -o {dst if dst[-1]!='/' else dst[:-1]}/{FINAL_EXE_NAME} {' '.join(ans)} {' '.join(tb)}"
     args = shlex.split(cmd)
     rv = [[], 0]
+    # rv[0].append(cmd)
     try:
-        subprocess.check_output(args, stderr=subprocess.STDOUT)
+        p = subprocess.check_output(args, stderr=subprocess.STDOUT)
+        # rv[0].append(p)
     except subprocess.CalledProcessError as e:
         rv[0] = e.output.decode("utf-8", "ignore").splitlines()
         rv[1] = 1
