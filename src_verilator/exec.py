@@ -247,19 +247,27 @@ def make(dst: str, ans: list, tb: list, onf: list, conf=None) -> [str, int]:
 
     # Here, you can't use > to redirect its output
     if conf is not None:
-        cmd = (
-            f"verilator --cc --main --binary --Wno-lint --Wno-style --Wno-TIMESCALEMOD -CFLAGS -std=c++2a -O3 --x-assign fast"
-            f" --x-initial fast --noassert --exe --o {FINAL_EXE_NAME}"
-            f" --Mdir {dst}"
-            f" -I{conf['test_src_path']}/"
-            f" -I{conf['test_dst_path']}/"
-            f" {' '.join(ans)} {' '.join(tb)}")
+        # cmd = (
+        #     f"verilator --cc --main --binary --Wno-lint --Wno-style --Wno-TIMESCALEMOD --Wno-COMBDLY --Wno-UNOPTFLAT -CFLAGS -std=c++2a"
+        #     f" --noassert --exe --o {FINAL_EXE_NAME}"
+        #     f" --Mdir {dst}"
+        #     f" -I{conf['test_src_path']}/"
+        #     f" -I{conf['test_dst_path']}/"
+        #     f" {' '.join(ans)} {' '.join(tb)}")
+        """if you ask what is happened here, I'll tell tell you:
+                verilator is a gooooood software..."""
+        cmd = f"iverilog -I {conf['test_src_path']} -I {conf['test_dst_path']} -o {dst}/{FINAL_EXE_NAME} {' '.join(ans)} {' '.join(tb)}"
     else:
-        cmd = (
-            f"verilator --cc --main --binary --Wno-lint --Wno-style --Wno-TIMESCALEMOD -CFLAGS -std=c++2a -O3 --x-assign fast"
-            f" --x-initial fast --noassert --exe --o {FINAL_EXE_NAME}"
-            f" --Mdir {dst}"
-            f" {' '.join(ans)} {' '.join(tb)}")
+        if conf['simulator']=='verilator':
+            cmd = (
+                f"verilator --cc --main --binary --Wno-lint --Wno-style --Wno-TIMESCALEMOD --Wno-COMBDLY --Wno-UNOPTFLAT -CFLAGS -std=c++2a"
+                f" --noassert --exe --o {FINAL_EXE_NAME}"
+                f" --Mdir {dst}"
+                f" {' '.join(ans)} {' '.join(tb)}")
+        else:
+            """if you ask what is happened here, I'll tell tell you:
+                    verilator is a gooooood software..."""
+            cmd = f"iverilog -o {dst}/{FINAL_EXE_NAME} {' '.join(ans)} {' '.join(tb)}"
     args = shlex.split(cmd)
     rv = [[], 0]
     try:
@@ -275,6 +283,7 @@ def execute(dst: str) -> [str, int]:
 
     os.chdir(dst)
     executable = []
+    rv = ""
     for fx in os.listdir(dst):
         # Check whether the file fx is executable.
         if os.access(os.path.join(dst, fx), os.X_OK):
@@ -282,7 +291,7 @@ def execute(dst: str) -> [str, int]:
                 executable.append(os.path.join(dst, fx))
 
     if len(executable) != 1:
-        rv = f"Failed to compile!!!, with executables = {executable}"
+        rv += f"<br>Failed to compile!!!, with executables = {executable}"
         return [rv, 1]
 
     cmd = f"{executable[0]}"
@@ -362,7 +371,8 @@ def load_param(conf: dict):
             "display_wave",
             "subtest_merge_method",
             "comments",
-            "total_weight"
+            "total_weight",
+            "simulator"
         ]
 
         for c in configurables:
@@ -710,7 +720,8 @@ if __name__ == '__main__':
         "display_wave"        : True,
         "subtest_merge_method": "sum",
         "comments"            : [],
-        "total_weight"        : None
+        "total_weight"        : None,
+        "simulator"           : "iverilog"
     }
 
     # please ignore spelling mistakes
