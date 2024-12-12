@@ -256,7 +256,7 @@ def make(dst: str, ans: list, tb: list, onf: list, conf=None) -> [str, int]:
                 f" -I{conf['test_dst_path']}/"
                 f" {' '.join(ans)} {' '.join(tb)}")
         else:
-            """if you ask what is happened here, I'll tell tell you:
+            """if you ask what has happened here, I'll tell tell you:
                     verilator is a gooooood software..."""
             cmd = f"iverilog -I {conf['test_src_path']} -I {conf['test_dst_path']} -o {dst if dst[-1]!='/' else dst[:-1]}/{FINAL_EXE_NAME} {' '.join(ans)} {' '.join(tb)}"
     else:
@@ -265,7 +265,7 @@ def make(dst: str, ans: list, tb: list, onf: list, conf=None) -> [str, int]:
             f" --noassert --exe --o {FINAL_EXE_NAME}"
             f" --Mdir {dst}"
             f" {' '.join(ans)} {' '.join(tb)}")
-        """if you ask what is happened here, I'll tell tell you:
+        """if you ask what has happened here, I'll tell tell you:
                 verilator is a gooooood software..."""
         cmd = f"iverilog -o {dst if dst[-1]!='/' else dst[:-1]}/{FINAL_EXE_NAME} {' '.join(ans)} {' '.join(tb)}"
     args = shlex.split(cmd)
