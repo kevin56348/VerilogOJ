@@ -247,7 +247,7 @@ def make(dst: str, ans: list, tb: list, onf: list, conf=None) -> [str, int]:
 
     # Here, you can't use > to redirect its output
     if conf is not None:
-        if conf['simulator']=='verilator':
+        if conf['simulator'] == 'verilator':
             cmd = (
                 f"verilator --cc --main --binary --Wno-lint --Wno-style --Wno-TIMESCALEMOD -CFLAGS -std=c++2a"
                 f" --noassert --exe --o {FINAL_EXE_NAME}"
@@ -258,7 +258,7 @@ def make(dst: str, ans: list, tb: list, onf: list, conf=None) -> [str, int]:
         else:
             """if you ask what has happened here, I'll tell tell you:
                     verilator is a gooooood software..."""
-            cmd = f"iverilog -I {conf['test_src_path']} -I {conf['test_dst_path']} -o {dst if dst[-1]!='/' else dst[:-1]}/{FINAL_EXE_NAME} {' '.join(ans)} {' '.join(tb)}"
+            cmd = f"iverilog -I {conf['test_src_path']} -I {conf['test_dst_path']} -o {dst if dst[-1] != '/' else dst[:-1]}/{FINAL_EXE_NAME} {' '.join(ans)} {' '.join(tb)}"
     else:
         cmd = (
             f"verilator --cc --main --binary --Wno-lint --Wno-style --Wno-TIMESCALEMOD -CFLAGS -std=c++2a"
@@ -267,7 +267,7 @@ def make(dst: str, ans: list, tb: list, onf: list, conf=None) -> [str, int]:
             f" {' '.join(ans)} {' '.join(tb)}")
         """if you ask what has happened here, I'll tell tell you:
                 verilator is a gooooood software..."""
-        cmd = f"iverilog -o {dst if dst[-1]!='/' else dst[:-1]}/{FINAL_EXE_NAME} {' '.join(ans)} {' '.join(tb)}"
+        cmd = f"iverilog -o {dst if dst[-1] != '/' else dst[:-1]}/{FINAL_EXE_NAME} {' '.join(ans)} {' '.join(tb)}"
     args = shlex.split(cmd)
     rv = [[], 0]
     # rv[0].append(cmd)
@@ -374,7 +374,8 @@ def load_param(conf: dict):
             "subtest_merge_method",
             "comments",
             "total_weight",
-            "simulator"
+            "simulator",
+            "exam_mode"
         ]
 
         for c in configurables:
@@ -478,7 +479,7 @@ def compile_and_run(conf: dict, file_lists: list):
     return detail, teacher_result, student_result
 
 
-def generate_wave(test_results: list, first_mismatch_line: int, test_num: int, ttl_cnt: int):
+def generate_wave(test_results: list, first_mismatch_line: int, test_num: int, ttl_cnt: int, test_name: str):
     wave = {
         "signal": [
             [
@@ -492,7 +493,7 @@ def generate_wave(test_results: list, first_mismatch_line: int, test_num: int, t
             # edges
         ],
         "head"  : {
-            "text" : f'Wave Diff {test_num}',
+            "text" : f'#{test_num}: {test_name}',
             "tick" : 0,
             "every": 2
         },
@@ -503,15 +504,19 @@ def generate_wave(test_results: list, first_mismatch_line: int, test_num: int, t
 
     sig_names = []
 
+    if len(test_results[0]) == 0 or len(test_results[1]) == 0:
+        # there are no candidate signals
+        return ""
+
     # find all signal names we captured
     sig_n_val = re.split('[,:]', test_results[0][0])
     for i in sig_n_val:
         r = re.split('=', i)
         sig_names.append(r[0])
 
-    sig_and_val = [[[] for i in range(len(sig_names))], [[] for i in range(len(sig_names))]]
-    sig_and_val_compact = [[[] for i in range(len(sig_names))], [[] for i in range(len(sig_names))]]
-    sig_and_val_data = [[[] for i in range(len(sig_names))], [[] for i in range(len(sig_names))]]
+    sig_and_val = [[[] for _ in range(len(sig_names))], [[] for _ in range(len(sig_names))]]
+    sig_and_val_compact = [[[] for _ in range(len(sig_names))], [[] for _ in range(len(sig_names))]]
+    sig_and_val_data = [[[] for _ in range(len(sig_names))], [[] for _ in range(len(sig_names))]]
     # TODO: CONFIGURABLE
     start_line = max(0, first_mismatch_line - 200)
     end_line = min(min(ttl_cnt, len(test_results[1])), first_mismatch_line + 200)
@@ -536,11 +541,10 @@ def generate_wave(test_results: list, first_mismatch_line: int, test_num: int, t
                     else:
                         sig_and_val[_][j].append(r[1])
                 else:
-                    no_wave = True
                     break
 
         # compress data
-        # 10100001 will convert to 1010...1
+        # 10100001 will be converted to 1010...1
         # 10, 10, 10, 00, 01 will convert to 2..22, data = [10, 00, 01]
         is_binary = []
         for i in range(len(sig_names)):
@@ -586,7 +590,7 @@ def generate_wave(test_results: list, first_mismatch_line: int, test_num: int, t
     return svg_string
 
 
-def judge_one(config_dict: dict, number_test: int, total_num: int):
+def judge_one(config_dict: dict, number_test: int, total_num: int, test_name: str):
     CG_result = {
         "detail" : "",
         "verdict": "",
@@ -636,7 +640,7 @@ def judge_one(config_dict: dict, number_test: int, total_num: int):
                 break
         if config_dict['display_wave']:
             test_results = [teacher_result_list, student_result_list]
-            svg_string = generate_wave(test_results, first_mismatch_line, number_test, ttl_cnt)
+            svg_string = generate_wave(test_results, first_mismatch_line, number_test, ttl_cnt, test_name)
 
         err_cnt = 0 if first_mismatch_line == -1 else 1
 
@@ -723,7 +727,8 @@ if __name__ == '__main__':
         "subtest_merge_method": "sum",
         "comments"            : [],
         "total_weight"        : None,
-        "simulator"           : "iverilog"
+        "simulator"           : "iverilog",
+        "exam_mode"           : False
     }
 
     # please ignore spelling mistakes
@@ -745,9 +750,9 @@ if __name__ == '__main__':
     """ ==========================================================
                           JUDGE MAIN TEST POINT
         =========================================================="""
-    CG_result, blk, svg = judge_one(config_dict, 0, config_dict['test_point_number'])
+    CG_result, blk, svg = judge_one(config_dict, 0, config_dict['test_point_number'], 'main test')
     blks.append(blk)
-    if config_dict['display_wave']:
+    if config_dict['display_wave'] and not config_dict['exam_mode']:
         svgs.append(svg)
 
     if (CG_result['score'] == "100"
@@ -760,14 +765,15 @@ if __name__ == '__main__':
                 and type(config_dict["test_point_names"]) == dict
                 and len(config_dict["test_point_names"].keys()) != 0
                 and len(config_dict["test_point_names"].keys()) != config_dict["test_point_number"])
-            or CG_result['verdict'] == "CE"):
-        if config_dict['display_wave']:
+            or CG_result['verdict'] == "CE"
+            or config_dict['exam_mode']):
+        if not config_dict['exam_mode']:
             CG_result.update({"detail": f"{CG_result['detail']} {blks[0]} {svgs[0]} {dx}"})
         else:
             if CG_result['verdict'] != 'CE':
                 CG_result.update({"detail": f"Submitted"})
                 CG_result.update({"verdict": f"Submitted"})
-                CG_result.update({"score": f"Submitted"})
+                # CG_result.update({"score": f"Submitted"})
                 CG_result.update({"comment": f"Submitted"})
             else:
                 CG_result.update({"verdict": f"Compile Error"})
@@ -799,7 +805,7 @@ if __name__ == '__main__':
         config_bk.update({"test_src_path": os.path.join(config_dict["test_src_path"], sub_test_name)})
         config_bk.update({"test_dst_path": os.path.join(config_dict["test_dst_path"], sub_test_name)})
 
-        CG_result_sub, blk, svg = judge_one(config_bk, i + 1, test_cnt)
+        CG_result_sub, blk, svg = judge_one(config_bk, i + 1, test_cnt, sub_test_name)
         blks.append(blk)
         if config_dict['display_wave']:
             svgs.append(svg)
