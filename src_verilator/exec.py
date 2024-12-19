@@ -550,7 +550,7 @@ def generate_wave(test_results: list, first_mismatch_line: int, test_num: int, t
         for i in range(len(sig_names)):
             is_binary.append(True)
             for j in sig_and_val[_][i]:
-                if len(j) != 1 or len(j) == 1 and (j != '1' and j != '0' and j != 'l' and j != 'h'):
+                if len(j) != 1 or len(j) == 1 and j not in ['1', '0', 'l', 'h', 'x', 'z']:
                     is_binary[-1] = False
                     break
 
@@ -573,12 +573,12 @@ def generate_wave(test_results: list, first_mismatch_line: int, test_num: int, t
                         sig_and_val_data[_][i].append(sig_and_val[_][i][j])
 
         for i in range(len(sig_names)):
-            wave["signal"][_][i + 1]["wave"] = ''.join(sig_and_val_compact[_][i])
+            wave["signal"][_][i + 1]["wave"] = 'x' + ''.join(sig_and_val_compact[_][i])
             wave["signal"][_][i + 1]["data"] = sig_and_val_data[_][i]
-            wave["signal"][_][i + 1]["node"] = '.' * len(sig_and_val_compact[_][i])
+            wave["signal"][_][i + 1]["node"] = '.' * (len(sig_and_val_compact[_][i]) + 1)
             if first_mismatch_line != -1:
-                wave["signal"][_][i + 1]["node"] = wave["signal"][_][i + 1]["node"][:first_mismatch_line] + (
-                    'a' if _ == 0 else 'b') + wave["signal"][_][i + 1]["node"][first_mismatch_line + 2:]
+                wave["signal"][_][i + 1]["node"] = wave["signal"][_][i + 1]["node"][:first_mismatch_line + 1] + (
+                    'a' if _ == 0 else 'b') + wave["signal"][_][i + 1]["node"][first_mismatch_line + 3:]
     if first_mismatch_line != -1:
         wave["edge"].append("a~b")
 
@@ -636,11 +636,17 @@ def judge_one(config_dict: dict, number_test: int, total_num: int, test_name: st
         first_mismatch_line = -1
         for i in range(min(ttl_cnt, len(student_result_list))):
             if teacher_result_list[i] != student_result_list[i]:
-                first_mismatch_line = i
-                break
-        if config_dict['display_wave']:
-            test_results = [teacher_result_list, student_result_list]
-            svg_string = generate_wave(test_results, first_mismatch_line, number_test, ttl_cnt, test_name)
+                for j in range(len(teacher_result_list[i])):
+                    if teacher_result_list[i][j] != student_result_list[i][j] and teacher_result_list[i][j] not in ['x', 'X']:
+                        first_mismatch_line = i
+                if first_mismatch_line != -1:
+                    break
+        try:
+            if config_dict['display_wave']:
+                test_results = [teacher_result_list, student_result_list]
+                svg_string = generate_wave(test_results, first_mismatch_line, number_test, ttl_cnt, test_name)
+        except Exception as e:
+            pass
 
         err_cnt = 0 if first_mismatch_line == -1 else 1
 
