@@ -17,16 +17,27 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+# to dump json strings
 import json
+# to handle file paths
 import os
 
+# to load configs
 import yaml
+# to exec simulators, etc.
 import shlex
+# to exec simulators, etc.
 import subprocess
+# to find out the difference ratio
 import difflib
+# regex, to handle simulator outputs
 import re
+# to generate waves
 import wavedrom
 
+# This is the name of the executable.
+# It is only used to prevent that we forgot to delete testcases in a docker image.
+# You can remove it.
 FINAL_EXE_NAME = "___XXX_DO_NOT_CHANGE_THIS_EXECUTABLE"
 
 """
@@ -97,13 +108,14 @@ class HtmlBlock:
         """
         self.app = True
 
-    def get_append(self):
+    def get_append(self) -> bool:
         return self.app
 
-    def set_append(self, value):
+    def set_append(self, value: bool):
         self.app = value
 
-    def parse_dic(self, dic: dict):
+    @staticmethod
+    def parse_dic(dic: dict) -> str:
         """
         A simple method whose function is converting a dict to the format can attach to a label.
         """
@@ -125,7 +137,7 @@ class HtmlBlock:
                 p += f"{d}='{dic[d]}' "
         return p
 
-    def generate_html(self, supp=None) -> str:
+    def generate_html(self, supp: str or list = None) -> str:
         """
         Wrapping and output whole html string.
         """
@@ -399,15 +411,15 @@ def prepare_files(conf: dict):
 
     for d in os.listdir(conf["test_src_path"]):
         # print(d[-5:])
-        if d[-5:] == '_tb.v':
+        if d[-5:].lower() == '_tb.v':
             # this is a testbench
             main_test_tb_srcs.append(os.path.join(conf["test_src_path"], d))
-        elif d[-2:] == '.v':
+        elif d[-2:].lower() == '.v':
             # this is an answer
             test_ans_srcs.append(os.path.join(conf["test_src_path"], d))
 
     for d in os.listdir(conf["submit_src_path"]):
-        if d[-2:] == '.v':
+        if d[-2:].lower() == '.v':
             student_ans_srcs.append(os.path.join(conf["submit_src_path"], d))
 
     # print(main_test_tb_srcs)
@@ -631,13 +643,14 @@ def judge_one(config_dict: dict, number_test: int, total_num: int, test_name: st
         for i in student_result[0]:
             if i[:7] == 'monitor':
                 student_result_list.append(i[8:])
-
+        # TODO!!!!! iverilog strobe只能传递常量或者简单信号！！！
         # it will find the first error line.
         first_mismatch_line = -1
         for i in range(min(ttl_cnt, len(student_result_list))):
             if teacher_result_list[i] != student_result_list[i]:
                 for j in range(len(teacher_result_list[i])):
-                    if teacher_result_list[i][j] != student_result_list[i][j] and teacher_result_list[i][j] not in ['x', 'X']:
+                    if teacher_result_list[i][j] != student_result_list[i][j] and teacher_result_list[i][j] not in ['x',
+                                                                                                                    'X']:
                         first_mismatch_line = i
                 if first_mismatch_line != -1:
                     break
