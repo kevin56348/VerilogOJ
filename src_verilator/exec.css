@@ -97,6 +97,16 @@ tr:nth-child(even) {
     background-color: #F1F1F1;
 }
 
+.warn_head {
+    color: #c88c00;
+    font-weight: bold;
+}
+
+.warn_message {
+    color: #d5b622;
+    background-color: #F1F1F1;
+}
+
 .pass_head {
     color: #4CAF50;
     font-weight: bold;

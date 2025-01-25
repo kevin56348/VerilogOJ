@@ -35,6 +35,11 @@ import re
 # to generate waves
 import wavedrom
 
+import pyverilog
+from pyverilog.vparser.parser import parse
+import pyverilog.vparser.ast as vast
+from pyverilog.ast_code_generator.codegen import ASTCodeGenerator
+
 # This is the name of the executable.
 # It is only used to prevent that we forgot to delete testcases in a docker image.
 # You can remove it.
@@ -233,6 +238,64 @@ class HtmlBlock:
             self.cnt += 1
         else:
             return mp
+
+
+def traverse_ast(ast, typex, x):
+    # find module def
+    for c in ast.children():
+        traverse_ast(c, typex, x)
+    if ast.__class__.__name__ == typex:
+        x.append(ast)
+    return x
+
+
+def convert_ports_to_ansi(module_def):
+    ports = []
+    items_to_remove = []
+    portlist = module_def.portlist.ports
+    port_names = set()
+    for port in portlist:
+        first = port.first if port.first is not None else pyverilog.vparser.ast.Inout(
+            pyverilog.vparser.ast.Variable('<<unk_name?>>'))
+        second = port.second if port.second is not None else pyverilog.vparser.ast.Wire(
+            pyverilog.vparser.ast.Variable('<<unk_name?>>'))
+        port = pyverilog.vparser.ast.Ioport(first=first, second=second, lineno=port.lineno)
+        if port.first is not None:
+            port_names.add(port.first.name)
+
+        ports.append(port)
+        # if isinstance(ioitem, vast.Ioport):
+    new_portlist = vast.Portlist(tuple(ports))
+    module_def.portlist = new_portlist
+
+    # pprint(port_names)
+
+    for item in module_def.items:
+        if isinstance(item, (vast.Wire, vast.Reg)):
+            for signal in item.list:
+                if signal.name in port_names:
+                    items_to_remove.append(signal)
+
+    module_def.items = [item for item in module_def.items
+                        if not any(signal.name in port_names for signal in getattr(item, 'list', []))]
+    module_def.show()
+    return module_def
+
+
+def generate(filelist):
+    ast, directives = parse(filelist)
+
+    # Traverse the AST to find all ModuleDefs
+    modules = traverse_ast(ast, "ModuleDef", [])
+
+    for i in range(len(modules)):
+        modules[i] = convert_ports_to_ansi(modules[i])
+        modules[i].show()
+
+    codegen = ASTCodeGenerator()
+    rslt = codegen.visit(ast)
+    return rslt
+
 
 
 html_blk = HtmlBlock()
@@ -462,6 +525,25 @@ def compile_and_run(conf: dict, file_lists: list):
     # make student ans
     comp_student = make(conf["test_dst_path"] + "student/", student_ans_srcs, main_test_tb_srcs, other_necessary_files,
                         conf)
+    if comp_student[1] == 1:
+        # compile error, try to fix it
+        detail += html_blk.add_p(
+                ["Compiling failed in your code. Please check your work.", "Warning messages are as follows:"],
+                {"class": "warn_head"})
+        detail += html_blk.add_div(comp_student[0], {"class": "warn_message"})
+
+        fix_non_ansi_port = generate(student_ans_srcs)
+        new_file_name = f"{conf['test_dst_path'] if conf['test_dst_path'][-1] == '/' else conf['test_dst_path'] + '/'}a_filename_which_cannot_be_duplicated4237842367893.v"
+        with open(new_file_name, "w") as f:
+            f.write(fix_non_ansi_port)
+        detail += html_blk.add_p(
+                ["Optimizing your code.", "New code is as follow:"],
+                {"class": "warn_head"})
+        detail += html_blk.add_div(fix_non_ansi_port, {"class": "warn_message"})
+
+        student_ans_srcs = [new_file_name]
+        comp_student = make(conf["test_dst_path"] + "student/", student_ans_srcs, main_test_tb_srcs,
+                            other_necessary_files, conf)
     if comp_student[1] == 1:
         detail += html_blk.add_p(
                 ["Compiling failed in your code. Please check your work.", "Error messages are as follows:"],
