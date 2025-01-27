@@ -247,6 +247,16 @@ def make(dst: str, ans: list, tb: list, onf: list, conf=None) -> [str, int]:
     some annoying situations.
     """
 
+    # 11.0 supports non-ANSI port decl
+    # supports 11.0 and 12.0 now
+    iverilog_ver = "11.0"
+    if iverilog_ver == "11.0":
+        iverilog_executable = "/root/iverilog/bin/iverilog"
+    elif iverilog_ver == "12.0":
+        iverilog_executable = "/usr/local/bin/iverilog"
+    else: # 12.0 actually
+        iverilog_executable = "iverilog"
+
     cmd = f"mkdir -p {dst}"
     args = shlex.split(cmd)
     subprocess.check_output(args)  # ignore output
@@ -269,7 +279,7 @@ def make(dst: str, ans: list, tb: list, onf: list, conf=None) -> [str, int]:
         else:
             """if you ask what has happened here, I'll tell tell you:
                     verilator is a gooooood software..."""
-            cmd = f"iverilog -I {conf['test_src_path']} -I {conf['test_dst_path']} -o {dst if dst[-1] != '/' else dst[:-1]}/{FINAL_EXE_NAME} {' '.join(ans)} {' '.join(tb)}"
+            cmd = f"{iverilog_executable} -I {conf['test_src_path']} -I {conf['test_dst_path']} -o {dst if dst[-1] != '/' else dst[:-1]}/{FINAL_EXE_NAME} {' '.join(ans)} {' '.join(tb)}"
     else:
         cmd = (
             f"verilator --cc --main --binary --Wno-lint --Wno-style --Wno-TIMESCALEMOD -CFLAGS -std=c++2a"
@@ -278,7 +288,7 @@ def make(dst: str, ans: list, tb: list, onf: list, conf=None) -> [str, int]:
             f" {' '.join(ans)} {' '.join(tb)}")
         """if you ask what has happened here, I'll tell tell you:
                 verilator is a gooooood software..."""
-        cmd = f"iverilog -o {dst if dst[-1] != '/' else dst[:-1]}/{FINAL_EXE_NAME} {' '.join(ans)} {' '.join(tb)}"
+        cmd = f"{iverilog_executable} -o {dst if dst[-1] != '/' else dst[:-1]}/{FINAL_EXE_NAME} {' '.join(ans)} {' '.join(tb)}"
     args = shlex.split(cmd)
     rv = [[], 0]
     # rv[0].append(cmd)
