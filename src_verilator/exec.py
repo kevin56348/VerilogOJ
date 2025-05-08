@@ -838,7 +838,7 @@ if __name__ == '__main__':
         if config_dict['display_wave']:
             svgs.append(svg)
 
-        custom_comment = f"{config_bk['comments'][i]} is {'' if int(CG_result_sub['score']) == 100 else 'not'} pass. <br>"
+        custom_comment = f"{config_bk['comments'][i]} is {'' if int(eval(CG_result_sub['score'])) == 100 else 'not'} pass. <br>"
 
         CG_result.update({
             "comment": f"{CG_result['comment']} <br> subtest_{i}: {CG_result_sub['comment']} <br> {custom_comment}"})
