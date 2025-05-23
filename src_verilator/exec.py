@@ -671,6 +671,7 @@ def judge_one(config_dict: dict, number_test: int, total_num: int, test_name: st
             pass
 
         err_cnt = 0 if first_mismatch_line == -1 else 1
+        err_cnt = err_cnt if len(student_result_list) != 0 else 1
 
     if err_cnt == 0:
         r = 1
@@ -732,6 +733,8 @@ def judge_one(config_dict: dict, number_test: int, total_num: int, test_name: st
     CG_result.update({"score": f"{mark}"})
     CG_result.update({"comment": f"{comment}"})
     CG_result.update({"detail": f"{detail}"})
+    CG_result.update({"xxx": f"{teacher_result_list}"})
+    CG_result.update({"yyy": f"{student_result_list}"})
 
     return CG_result, blks, svgs
 
